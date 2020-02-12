@@ -21,7 +21,7 @@ function setup() {
   poll_until_true 'workload podinfo' 'kubectl -n demo describe deployment/podinfo'
 
   # make sure we have _finished_ a sync run
-  fluxctl --k8s-fwd-ns "${FLUX_NAMESPACE}" sync
+  poll_until_true 'fluxctl sync succeeds' "fluxctl --k8s-fwd-ns ${FLUX_NAMESPACE} sync"
 
   # Clone the repo and check the sync tag
   local clone_dir
@@ -38,7 +38,7 @@ function setup() {
   head_hash=$(git rev-list -n 1 HEAD)
   git push >&3
 
-  fluxctl --k8s-fwd-ns "${FLUX_NAMESPACE}" sync
+  poll_until_true 'fluxctl sync succeeds' "fluxctl --k8s-fwd-ns ${FLUX_NAMESPACE} sync"
 
   poll_until_equals "podinfo deployment removed" "[]" "kubectl get deploy -n demo -o\"jsonpath={['items']}\""
   poll_until_equals "sync tag" "$head_hash" 'git pull -f --tags > /dev/null 2>&1; git rev-list -n 1 flux'
