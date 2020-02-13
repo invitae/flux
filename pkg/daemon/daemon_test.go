@@ -636,7 +636,7 @@ func mustParseImageRef(ref string) image.Ref {
 }
 
 func mockDaemon(t *testing.T) (*Daemon, func(), func(), *mock.Mock, *mockEventWriter, func(func())) {
-	logger := zap.NewNop().Sugar()
+	logger := zap.NewNop()
 
 	singleService := cluster.Workload{
 		ID: resource.MustParseID(wl),

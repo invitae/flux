@@ -130,7 +130,7 @@ func (c *Cluster) Sync(syncSet cluster.SyncSet) error {
 func (c *Cluster) collectGarbage(
 	syncSet cluster.SyncSet,
 	checksums map[string]string,
-	logger *zap.SugaredLogger,
+	logger *zap.Logger,
 	dryRun bool) (cluster.SyncError, error) {
 
 	orphanedResources := makeChangeSet()
@@ -436,7 +436,7 @@ func (c *changeSet) stage(cmd string, id resource.ID, source string, bytes []byt
 
 // Applier is something that will apply a changeset to the cluster.
 type Applier interface {
-	apply(*zap.SugaredLogger, changeSet, map[resource.ID]error) cluster.SyncError
+	apply(*zap.Logger, changeSet, map[resource.ID]error) cluster.SyncError
 }
 
 type Kubectl struct {
@@ -521,12 +521,17 @@ func (objs applyOrder) Less(i, j int) bool {
 	return ranki < rankj
 }
 
-func (c *Kubectl) apply(logger *zap.SugaredLogger, cs changeSet, errored map[resource.ID]error) (errs cluster.SyncError) {
+func (c *Kubectl) apply(logger *zap.Logger, cs changeSet, errored map[resource.ID]error) (errs cluster.SyncError) {
 	f := func(objs []applyObject, cmd string, args ...string) {
 		if len(objs) == 0 {
 			return
 		}
-		logger.Info(zap.String("cmd", cmd), zap.Strings("args", args), zap.Int("count", len(objs)))
+		logger.Info(
+			"applying",
+			zap.String("cmd", cmd),
+			zap.Strings("args", args),
+			zap.Int("count", len(objs)),
+		)
 		args = append(args, cmd)
 
 		var multi, single []applyObject
@@ -577,7 +582,7 @@ func (c *Kubectl) apply(logger *zap.SugaredLogger, cs changeSet, errored map[res
 	return errs
 }
 
-func (c *Kubectl) doCommand(logger *zap.SugaredLogger, r io.Reader, args ...string) error {
+func (c *Kubectl) doCommand(logger *zap.Logger, r io.Reader, args ...string) error {
 	args = append(args, "-f", "-")
 	cmd := c.kubectlCommand(args...)
 	cmd.Stdin = r
@@ -593,10 +598,21 @@ func (c *Kubectl) doCommand(logger *zap.SugaredLogger, r io.Reader, args ...stri
 	}
 
 	if err != nil {
-		logger.Error(zap.String("cmd", "kubectl "+strings.Join(args, " ")), zap.Duration("took", time.Since(begin)), zap.Error(err), zap.String("output", strings.TrimSpace(stdout.String())))
+		logger.Error(
+			"error during apply",
+			zap.String("cmd", "kubectl "+strings.Join(args, " ")),
+			zap.Duration("took", time.Since(begin)),
+			zap.Error(err),
+			zap.String("output", strings.TrimSpace(stdout.String())),
+		)
 		return err
 	}
-	logger.Info(zap.String("cmd", "kubectl "+strings.Join(args, " ")), zap.Duration("took", time.Since(begin)), "output", strings.TrimSpace(stdout.String()))
+	logger.Info(
+		"apply succeeded",
+		zap.String("cmd", "kubectl "+strings.Join(args, " ")),
+		zap.Duration("took", time.Since(begin)),
+		zap.String("output", strings.TrimSpace(stdout.String())),
+	)
 	return err
 }
 

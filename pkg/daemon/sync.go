@@ -112,7 +112,10 @@ func (d *Daemon) Sync(ctx context.Context, started time.Time, newRevision string
 	// Report all collected events
 	for _, event := range noteEvents {
 		if err = d.LogEvent(event); err != nil {
-			d.Logger.Error(zap.Error(err))
+			d.Logger.Error(
+				"event logging failure",
+				zap.Error(err),
+			)
 			// Abort early to ensure at least once delivery of events
 			return err
 		}
@@ -158,7 +161,7 @@ func getChangeSet(ctx context.Context, state revisionRatchet, headRev string, re
 // doSync runs the actual sync of workloads on the cluster. It returns
 // a map with all resources it applied and sync errors it encountered.
 func doSync(ctx context.Context, manifestsStore manifests.Store, clus cluster.Cluster, syncSetName string,
-	logger *zap.SugaredLogger) (map[string]resource.Resource, []event.ResourceError, error) {
+	logger *zap.Logger) (map[string]resource.Resource, []event.ResourceError, error) {
 	resources, err := manifestsStore.GetAllResourcesByID(ctx)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "loading resources from repo")
@@ -168,7 +171,10 @@ func doSync(ctx context.Context, manifestsStore manifests.Store, clus cluster.Cl
 	if err := fluxsync.Sync(syncSetName, resources, clus); err != nil {
 		switch syncerr := err.(type) {
 		case cluster.SyncError:
-			logger.Error(zap.Error(err))
+			logger.Error(
+				"sync failure",
+				zap.Error(err),
+			)
 			updateSyncManifestsMetric(len(resources)-len(syncerr), len(syncerr))
 			for _, e := range syncerr {
 				resourceErrors = append(resourceErrors, event.ResourceError{
@@ -256,7 +262,7 @@ func (d *Daemon) getNotes(ctx context.Context, timeout time.Duration) (map[strin
 // autoreleases, that we're already posting as events, so upstream
 // can skip the sync event if it wants to.
 func (d *Daemon) collectNoteEvents(ctx context.Context, c changeSet, notes map[string]struct{}, timeout time.Duration,
-	started time.Time, logger *zap.SugaredLogger) ([]event.Event, map[string]bool, error) {
+	started time.Time, logger *zap.Logger) ([]event.Event, map[string]bool, error) {
 	if len(c.commits) == 0 {
 		return nil, nil, nil
 	}
@@ -374,7 +380,7 @@ func (d *Daemon) collectNoteEvents(ctx context.Context, c changeSet, notes map[s
 
 // logCommitEvent reports all synced commits to the upstream.
 func logCommitEvent(el eventLogger, c changeSet, serviceIDs resource.IDSet, started time.Time,
-	includesEvents map[string]bool, resourceErrors []event.ResourceError, logger *zap.SugaredLogger) error {
+	includesEvents map[string]bool, resourceErrors []event.ResourceError, logger *zap.Logger) error {
 	if len(c.commits) == 0 {
 		return nil
 	}
@@ -396,7 +402,10 @@ func logCommitEvent(el eventLogger, c changeSet, serviceIDs resource.IDSet, star
 			Errors:      resourceErrors,
 		},
 	}); err != nil {
-		logger.Error(zap.Error(err))
+		logger.Error(
+			"event log failure",
+			zap.Error(err),
+		)
 		return err
 	}
 	return nil

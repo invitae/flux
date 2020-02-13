@@ -115,7 +115,7 @@ func groupVersionResource(res *unstructured.Unstructured) schema.GroupVersionRes
 	return schema.GroupVersionResource{Group: gvk.Group, Version: gvk.Version, Resource: strings.ToLower(gvk.Kind) + "s"}
 }
 
-func (a fakeApplier) apply(_ *zap.SugaredLogger, cs changeSet, errored map[resource.ID]error) cluster.SyncError {
+func (a fakeApplier) apply(_ *zap.Logger, cs changeSet, errored map[resource.ID]error) cluster.SyncError {
 	var errs []cluster.ResourceError
 
 	operate := func(obj applyObject, cmd string) {
@@ -246,13 +246,12 @@ func setup(t *testing.T) (*Cluster, *fakeApplier, func()) {
 	logCfg := zap.NewDevelopmentConfig()
 	logCfg.Encoding = "logfmt"
 	logger, _ := logCfg.Build()
-	sugaredLogger := logger.Sugar()
 	clients, cancel := fakeClients()
 	applier := &fakeApplier{dynamicClient: clients.dynamicClient, coreClient: clients.coreClient, defaultNS: defaultTestNamespace}
 	kube := &Cluster{
 		applier:             applier,
 		client:              clients,
-		logger:              sugaredLogger,
+		logger:              logger,
 		resourceExcludeList: []string{"*metrics.k8s.io/*", "webhook.certmanager.k8s.io/v1beta1/*"},
 	}
 	return kube, applier, cancel
@@ -332,7 +331,6 @@ func TestSync(t *testing.T) {
 	logCfg := zap.NewDevelopmentConfig()
 	logCfg.Encoding = "logfmt"
 	logger, _ := logCfg.Build()
-	sugaredLogger := logger.Sugar()
 	const ns1 = `---
 apiVersion: v1
 kind: Namespace
@@ -393,7 +391,7 @@ metadata:
 		if err != nil {
 			t.Fatal(err)
 		}
-		manifests := NewManifests(namespacer, sugaredLogger)
+		manifests := NewManifests(namespacer, logger)
 
 		resources0, err := kresource.ParseMultidoc([]byte(defs), "before")
 		if err != nil {

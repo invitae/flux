@@ -140,7 +140,7 @@ var (
 			},
 		},
 	}
-	testLogger = func() *zap.SugaredLogger {
+	testLogger = func() *zap.Logger {
 		zap.RegisterEncoder("logfmt", func(config zapcore.EncoderConfig) (zapcore.Encoder, error) {
 			enc := zapLogfmt.NewEncoder(config)
 			return enc, nil
@@ -148,8 +148,7 @@ var (
 		logCfg := zap.NewDevelopmentConfig()
 		logCfg.Encoding = "logfmt"
 		logger, _ := logCfg.Build()
-		sugaredLogger := logger.Sugar()
-		return sugaredLogger
+		return logger
 	}()
 	mockManifests = kubernetes.NewManifests(kubernetes.ConstNamespacer("default"), testLogger)
 )
@@ -766,7 +765,7 @@ func Test_UpdateMultidoc(t *testing.T) {
 		ImageSpec:    update.ImageSpecLatest,
 		Kind:         update.ReleaseKindExecute,
 	}
-	results, err := Release(context.Background(), rc, spec, zap.NewNop().Sugar())
+	results, err := Release(context.Background(), rc, spec, zap.NewNop())
 	if err != nil {
 		t.Error(err)
 	}
@@ -813,7 +812,7 @@ func Test_UpdateList(t *testing.T) {
 		ImageSpec:    update.ImageSpecLatest,
 		Kind:         update.ReleaseKindExecute,
 	}
-	results, err := Release(context.Background(), rc, spec, zap.NewNop().Sugar())
+	results, err := Release(context.Background(), rc, spec, zap.NewNop())
 	if err != nil {
 		t.Error(err)
 	}
@@ -1042,7 +1041,7 @@ func Test_UpdateContainers(t *testing.T) {
 				specs.SkipMismatches = ignoreMismatches
 				specs.Force = tst.Force
 
-				results, err := Release(ctx, rc, specs, zap.NewNop().Sugar())
+				results, err := Release(ctx, rc, specs, zap.NewNop())
 
 				assert.Equal(t, expected.Err, err)
 				if expected.Err == nil {
@@ -1055,7 +1054,7 @@ func Test_UpdateContainers(t *testing.T) {
 }
 
 func testRelease(t *testing.T, rc *ReleaseContext, spec update.ReleaseImageSpec, expected update.Result) {
-	results, err := Release(context.Background(), rc, spec, zap.NewNop().Sugar())
+	results, err := Release(context.Background(), rc, spec, zap.NewNop())
 	assert.NoError(t, err)
 	assert.Equal(t, expected, results)
 }
@@ -1079,7 +1078,6 @@ func Test_BadRelease(t *testing.T) {
 	logCfg := zap.NewDevelopmentConfig()
 	logCfg.Encoding = "logfmt"
 	logger, _ := logCfg.Build()
-	sugaredLogger := logger.Sugar()
 	mCluster := mockCluster(hwSvc)
 	spec := update.ReleaseImageSpec{
 		ServiceSpecs: []update.ResourceSpec{update.ResourceSpecAll},
@@ -1090,14 +1088,14 @@ func Test_BadRelease(t *testing.T) {
 	checkout1, cleanup1 := setup(t)
 	defer cleanup1()
 
-	manifests := kubernetes.NewManifests(kubernetes.ConstNamespacer("default"), sugaredLogger)
+	manifests := kubernetes.NewManifests(kubernetes.ConstNamespacer("default"), logger)
 	ctx := context.Background()
 	rc := &ReleaseContext{
 		cluster:       mCluster,
 		resourceStore: NewManifestStoreOrFail(t, manifests, checkout1),
 		registry:      mockRegistry,
 	}
-	_, err := Release(ctx, rc, spec, zap.NewNop().Sugar())
+	_, err := Release(ctx, rc, spec, zap.NewNop())
 	if err != nil {
 		t.Fatal("release with 'good' manifests should succeed, but errored:", err)
 	}
@@ -1110,7 +1108,7 @@ func Test_BadRelease(t *testing.T) {
 		resourceStore: NewManifestStoreOrFail(t, &badManifests{manifests}, checkout2),
 		registry:      mockRegistry,
 	}
-	_, err = Release(ctx, rc, spec, zap.NewNop().Sugar())
+	_, err = Release(ctx, rc, spec, zap.NewNop())
 	if err == nil {
 		t.Fatal("did not return an error, but was expected to fail verification")
 	}

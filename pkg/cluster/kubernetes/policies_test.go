@@ -22,7 +22,6 @@ func TestUpdatePolicies(t *testing.T) {
 	logCfg := zap.NewDevelopmentConfig()
 	logCfg.Encoding = "logfmt"
 	logger, _ := logCfg.Build()
-	sugaredLogger := logger.Sugar()
 	for _, c := range []struct {
 		name    string
 		in, out []string
@@ -200,7 +199,7 @@ func TestUpdatePolicies(t *testing.T) {
 			caseIn := templToString(t, annotationsTemplate, cLocal.in)
 			caseOut := templToString(t, annotationsTemplate, cLocal.out)
 			resourceID := resource.MustParseID("default:deployment/nginx")
-			manifests := NewManifests(ConstNamespacer("default"), sugaredLogger)
+			manifests := NewManifests(ConstNamespacer("default"), logger)
 			out, err := manifests.UpdateWorkloadPolicies([]byte(caseIn), resourceID, cLocal.update)
 			assert.Equal(t, cLocal.wantErr, err != nil, "unexpected error value: %s", err)
 			if !cLocal.wantErr {

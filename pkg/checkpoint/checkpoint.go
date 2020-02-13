@@ -11,10 +11,10 @@ const (
 	versionCheckPeriod = 6 * time.Hour
 )
 
-func CheckForUpdates(product, version string, extra map[string]string, logger *zap.SugaredLogger) *checkpoint.Checker {
+func CheckForUpdates(product, version string, extra map[string]string, logger *zap.Logger) *checkpoint.Checker {
 	handleResponse := func(r *checkpoint.CheckResponse, err error) {
 		if err != nil {
-			logger.Error(zap.Error(err))
+			logger.Error("error checking for updates", zap.Error(err))
 			return
 		}
 		if r.Outdated {

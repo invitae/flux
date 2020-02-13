@@ -23,12 +23,11 @@ func TestLocalCRDScope(t *testing.T) {
 	logCfg := zap.NewDevelopmentConfig()
 	logCfg.Encoding = "logfmt"
 	logger, _ := logCfg.Build()
-	sugaredLogger := logger.Sugar()
 	coreClient := makeFakeClient()
 
 	nser, err := NewNamespacer(coreClient.Discovery(), "")
 	assert.NoError(t, err)
-	manifests := NewManifests(nser, sugaredLogger)
+	manifests := NewManifests(nser, logger)
 
 	dir, cleanup := testfiles.TempDir(t)
 	defer cleanup()
@@ -78,13 +77,12 @@ func TestUnKnownCRDScope(t *testing.T) {
 	logCfg := zap.NewDevelopmentConfig()
 	logCfg.Encoding = "logfmt"
 	logger, _ := logCfg.Build()
-	sugaredLogger := logger.Sugar()
 	coreClient := makeFakeClient()
 
 	nser, err := NewNamespacer(coreClient.Discovery(), "")
 	assert.NoError(t, err)
 	logBuffer := bytes.NewBuffer(nil)
-	manifests := NewManifests(nser, sugaredLogger)
+	manifests := NewManifests(nser, logger)
 
 	dir, cleanup := testfiles.TempDir(t)
 	defer cleanup()

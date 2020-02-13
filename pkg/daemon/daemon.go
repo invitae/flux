@@ -44,7 +44,7 @@ type Daemon struct {
 	Jobs                      *job.Queue
 	JobStatusCache            *job.StatusCache
 	EventWriter               event.EventWriter
-	Logger                    *zap.SugaredLogger
+	Logger                    *zap.Logger
 	ManifestGenerationEnabled bool
 	GitSecretEnabled          bool
 	// bookkeeping
@@ -237,15 +237,15 @@ func (d *Daemon) ListImagesWithOptions(ctx context.Context, opts v10.ListImagesO
 }
 
 // jobFunc is a type for procedures that the daemon will execute in a job
-type jobFunc func(ctx context.Context, jobID job.ID, logger *zap.SugaredLogger) (job.Result, error)
+type jobFunc func(ctx context.Context, jobID job.ID, logger *zap.Logger) (job.Result, error)
 
 // updateFunc is a type for procedures that operate on a git checkout, to be run in a job
-type updateFunc func(ctx context.Context, jobID job.ID, working *git.Checkout, logger *zap.SugaredLogger) (job.Result, error)
+type updateFunc func(ctx context.Context, jobID job.ID, working *git.Checkout, logger *zap.Logger) (job.Result, error)
 
 // makeJobFromUpdate turns an updateFunc into a jobFunc that will run
 // the update with a fresh clone, and log the result as an event.
 func (d *Daemon) makeJobFromUpdate(update updateFunc) jobFunc {
-	return func(ctx context.Context, jobID job.ID, logger *zap.SugaredLogger) (job.Result, error) {
+	return func(ctx context.Context, jobID job.ID, logger *zap.Logger) (job.Result, error) {
 		var result job.Result
 		err := d.WithWorkingClone(ctx, func(working *git.Checkout) error {
 			var err error
@@ -267,7 +267,7 @@ func (d *Daemon) makeJobFromUpdate(update updateFunc) jobFunc {
 
 // executeJob runs a job func and keeps track of its status, so the
 // daemon can report it when asked.
-func (d *Daemon) executeJob(id job.ID, do jobFunc, logger *zap.SugaredLogger) (job.Result, error) {
+func (d *Daemon) executeJob(id job.ID, do jobFunc, logger *zap.Logger) (job.Result, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), d.SyncTimeout)
 	defer cancel()
 	d.JobStatusCache.SetStatus(id, job.Status{StatusString: job.StatusRunning})
@@ -283,13 +283,21 @@ func (d *Daemon) executeJob(id job.ID, do jobFunc, logger *zap.SugaredLogger) (j
 // makeLoggingFunc takes a jobFunc and returns a jobFunc that will log
 // a commit event with the result.
 func (d *Daemon) makeLoggingJobFunc(f jobFunc) jobFunc {
-	return func(ctx context.Context, id job.ID, logger *zap.SugaredLogger) (job.Result, error) {
+	return func(ctx context.Context, id job.ID, logger *zap.Logger) (job.Result, error) {
 		started := time.Now().UTC()
 		result, err := f(ctx, id, logger)
 		if err != nil {
+			logger.Info(
+				"commit failure",
+				zap.Error(err),
+				zap.String("revision", result.Revision),
+			)
 			return result, err
 		}
-		logger.Info(zap.String("revision", result.Revision))
+		logger.Info(
+			"commit success",
+			zap.String("revision", result.Revision),
+		)
 		if result.Revision != "" {
 			var workloadIDs []resource.ID
 			for id, result := range result.Result {
@@ -323,7 +331,7 @@ func (d *Daemon) queueJob(do jobFunc) job.ID {
 	enqueuedAt := time.Now()
 	d.Jobs.Enqueue(&job.Job{
 		ID: id,
-		Do: func(logger *zap.SugaredLogger) error {
+		Do: func(logger *zap.Logger) error {
 			queueDuration.Observe(time.Since(enqueuedAt).Seconds())
 			_, err := d.executeJob(id, do, logger)
 			if err != nil {
@@ -361,7 +369,7 @@ func (d *Daemon) UpdateManifests(ctx context.Context, spec update.Spec) (job.ID,
 }
 
 func (d *Daemon) sync() jobFunc {
-	return func(ctx context.Context, jobID job.ID, logger *zap.SugaredLogger) (job.Result, error) {
+	return func(ctx context.Context, jobID job.ID, logger *zap.Logger) (job.Result, error) {
 		var result job.Result
 		ctx, cancel := context.WithTimeout(ctx, d.SyncTimeout)
 		defer cancel()
@@ -392,7 +400,7 @@ func (d *Daemon) sync() jobFunc {
 }
 
 func (d *Daemon) updatePolicies(spec update.Spec, updates resource.PolicyUpdates) updateFunc {
-	return func(ctx context.Context, jobID job.ID, working *git.Checkout, logger *zap.SugaredLogger) (job.Result, error) {
+	return func(ctx context.Context, jobID job.ID, working *git.Checkout, logger *zap.Logger) (job.Result, error) {
 		// For each update
 		var workloadIDs []resource.ID
 		result := job.Result{
@@ -478,7 +486,7 @@ func (d *Daemon) updatePolicies(spec update.Spec, updates resource.PolicyUpdates
 }
 
 func (d *Daemon) release(spec update.Spec, c release.Changes) updateFunc {
-	return func(ctx context.Context, jobID job.ID, working *git.Checkout, logger *zap.SugaredLogger) (job.Result, error) {
+	return func(ctx context.Context, jobID job.ID, working *git.Checkout, logger *zap.Logger) (job.Result, error) {
 		var zero job.Result
 		rs, err := d.getManifestStore(working)
 		if err != nil {
@@ -699,10 +707,18 @@ func (d *Daemon) WithReadonlyClone(ctx context.Context, fn func(*git.Export) err
 
 func (d *Daemon) LogEvent(ev event.Event) error {
 	if d.EventWriter == nil {
-		d.Logger.Info(zap.Any("event", ev), zap.Bool("logupstream", false))
+		d.Logger.Info(
+			"event",
+			zap.String("name", ev.String()),
+			zap.Bool("logupstream", false),
+		)
 		return nil
 	}
-	d.Logger.Info(zap.Any("event", ev), zap.Bool("logupstream", true))
+	d.Logger.Info(
+		"event",
+		zap.String("name", ev.String()),
+		zap.Bool("logupstream", true),
+	)
 	return d.EventWriter.LogEvent(ev)
 }
 

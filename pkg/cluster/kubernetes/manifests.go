@@ -35,12 +35,12 @@ type namespacer interface {
 // manifests that would be given a default namespace when applied.
 type manifests struct {
 	namespacer       namespacer
-	logger           *zap.SugaredLogger
+	logger           *zap.Logger
 	resourceWarnings map[string]struct{}
 	sopsEnabled      bool
 }
 
-func NewManifests(ns namespacer, logger *zap.SugaredLogger) *manifests {
+func NewManifests(ns namespacer, logger *zap.Logger) *manifests {
 	return &manifests{
 		namespacer:       ns,
 		logger:           logger,
@@ -49,7 +49,7 @@ func NewManifests(ns namespacer, logger *zap.SugaredLogger) *manifests {
 	}
 }
 
-func NewSopsManifests(ns namespacer, logger *zap.SugaredLogger) *manifests {
+func NewSopsManifests(ns namespacer, logger *zap.Logger) *manifests {
 	return &manifests{
 		namespacer:       ns,
 		logger:           logger,

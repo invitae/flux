@@ -10,7 +10,7 @@ import (
 
 type ID string
 
-type JobFunc func(*zap.SugaredLogger) error
+type JobFunc func(*zap.Logger) error
 
 type Job struct {
 	ID ID

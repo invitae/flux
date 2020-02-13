@@ -24,7 +24,7 @@ func (a *Automated) Add(service resource.ID, container resource.Container, image
 	a.Changes = append(a.Changes, Change{service, container, image})
 }
 
-func (a *Automated) CalculateRelease(ctx context.Context, rc ReleaseContext, logger *zap.SugaredLogger) ([]*WorkloadUpdate, Result, error) {
+func (a *Automated) CalculateRelease(ctx context.Context, rc ReleaseContext, logger *zap.Logger) ([]*WorkloadUpdate, Result, error) {
 	prefilters := []WorkloadFilter{
 		&IncludeFilter{a.workloadIDs()},
 	}
@@ -87,7 +87,7 @@ func (a *Automated) markSkipped(results Result) {
 	}
 }
 
-func (a *Automated) calculateImageUpdates(rc ReleaseContext, candidates []*WorkloadUpdate, result Result, logger *zap.SugaredLogger) ([]*WorkloadUpdate, error) {
+func (a *Automated) calculateImageUpdates(rc ReleaseContext, candidates []*WorkloadUpdate, result Result, logger *zap.Logger) ([]*WorkloadUpdate, error) {
 	updates := []*WorkloadUpdate{}
 
 	workloadMap := a.workloadMap()

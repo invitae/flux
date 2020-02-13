@@ -295,17 +295,16 @@ func main() {
 	}
 	logCfg.EncoderConfig.TimeKey = "ts"
 	logCfg.EncoderConfig.CallerKey = "caller"
-	logCfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-	baseLogger, err := logCfg.Build()
+	logCfg.Level = zap.NewAtomicLevelAt(zapLevel)
+	// Standard zap Logger
+	logger, err := logCfg.Build()
 	if err != nil {
 		fmt.Printf("error building logger: %s", err.Error())
 		os.Exit(1)
 	}
 	// Create a logger compatible with log.Logger interface for the k8s logger
-	compatibleLogger := zapLog.NewZapSugarLogger(baseLogger, zapLevel)
-	// Standard zap SugaredLogger
-	logger := baseLogger.Sugar()
-	logger.Info("version", version)
+	compatibleLogger := zapLog.NewZapSugarLogger(logger, zapLevel)
+	logger.Info(fmt.Sprintf("version %s", version))
 
 	// Silence access errors logged internally by client-go
 	k8slog := log.With(compatibleLogger,
@@ -536,7 +535,11 @@ func main() {
 			sshKeyRing = ssh.NewNopSSHKeyRing()
 		}
 
-		logger.Info("host", restClientConfig.Host, "version", clusterVersion)
+		logger.Info(
+			"server info",
+			zap.String("host", restClientConfig.Host),
+			zap.String("version", clusterVersion),
+		)
 
 		kubectl := *kubernetesKubectl
 		if kubectl == "" {
@@ -545,10 +548,13 @@ func main() {
 			_, err = os.Stat(kubectl)
 		}
 		if err != nil {
-			logger.Error("err", err)
+			logger.Error("could not find kubectl", zap.Error(err))
 			os.Exit(1)
 		}
-		logger.Info(zap.String("kubectl", kubectl))
+		logger.Info(
+			"kubeclt",
+			zap.String("path", kubectl),
+		)
 
 		client := kubernetes.MakeClusterClientset(clientset, dynamicClientset, fhrClientset, hrClientset, discoClientset)
 		kubectlApplier := kubernetes.NewKubectl(kubectl, restClientConfig)
@@ -561,9 +567,16 @@ func main() {
 		k8sInst.DryGC = *dryGC
 
 		if err := k8sInst.Ping(); err != nil {
-			logger.Error("ping", zap.Error(err))
+			logger.Error(
+				"api server unavailable",
+				zap.Bool("ping", false),
+				zap.Error(err),
+			)
 		} else {
-			logger.Info(zap.Bool("ping", true))
+			logger.Info(
+				"api server available",
+				zap.Bool("ping", true),
+			)
 		}
 
 		k8s = k8sInst
@@ -703,6 +716,7 @@ func main() {
 	}
 
 	logger.Info(
+		"git info",
 		zap.String("url", gitRemote.SafeURL()),
 		zap.String("user", *gitUser),
 		zap.String("email", *gitEmail),
@@ -711,7 +725,7 @@ func main() {
 		zap.String("sync-tag", *gitSyncTag),
 		zap.String("state", *syncState),
 		zap.Bool("readonly", *gitReadonly),
-		zap.String("registry-disable-scanning", *registryDisableScanning),
+		zap.Bool("registry-disable-scanning", *registryDisableScanning),
 		zap.String("notes-ref", *gitNotesRef),
 		zap.Bool("set-author", *gitSetAuthor),
 		zap.Bool("git-secret", *gitSecret),
@@ -787,7 +801,10 @@ func main() {
 		// Connect to fluxsvc if given an upstream address
 		if *upstreamURL != "" {
 			upstreamLogger := logger.With(zap.String("component", "upstream"))
-			upstreamLogger.Info(zap.String("URL", *upstreamURL))
+			upstreamLogger.Info(
+				"upstream",
+				zap.String("URL", *upstreamURL),
+			)
 			upstream, err := daemonhttp.NewUpstream(
 				&http.Client{Timeout: 10 * time.Second},
 				fmt.Sprintf("fluxd/%v", version),
@@ -808,7 +825,7 @@ func main() {
 				upstream.Close()
 			}()
 		} else {
-			logger.Info(zap.String("upstream", "no upstream URL given"))
+			logger.Info("no upstream URL given")
 		}
 	}
 
@@ -831,7 +848,7 @@ func main() {
 		}
 		handler := daemonhttp.NewHandler(daemon, daemonhttp.NewRouter())
 		mux.Handle("/api/flux/", http.StripPrefix("/api/flux", handler))
-		logger.Info(zap.String("addr", *listenAddr))
+		logger.Info("api server listening", zap.String("addr", *listenAddr))
 		errc <- http.ListenAndServe(*listenAddr, mux)
 	}()
 
@@ -839,7 +856,7 @@ func main() {
 		go func() {
 			mux := http.NewServeMux()
 			mux.Handle("/metrics", promhttp.Handler())
-			logger.Info(zap.String("metrics-addr", *listenMetricsAddr))
+			logger.Info("metrics listening", zap.String("addr", *listenMetricsAddr))
 			errc <- http.ListenAndServe(*listenMetricsAddr, mux)
 		}()
 	}

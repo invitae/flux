@@ -14,13 +14,13 @@ import (
 )
 
 type Changes interface {
-	CalculateRelease(context.Context, update.ReleaseContext, *zap.SugaredLogger) ([]*update.WorkloadUpdate, update.Result, error)
+	CalculateRelease(context.Context, update.ReleaseContext, *zap.Logger) ([]*update.WorkloadUpdate, update.Result, error)
 	ReleaseKind() update.ReleaseKind
 	ReleaseType() update.ReleaseType
 	CommitMessage(update.Result) string
 }
 
-func Release(ctx context.Context, rc *ReleaseContext, changes Changes, logger *zap.SugaredLogger) (results update.Result, err error) {
+func Release(ctx context.Context, rc *ReleaseContext, changes Changes, logger *zap.Logger) (results update.Result, err error) {
 	defer func(start time.Time) {
 		update.ObserveRelease(
 			start,
@@ -55,10 +55,13 @@ func Release(ctx context.Context, rc *ReleaseContext, changes Changes, logger *z
 	return results, nil
 }
 
-func ApplyChanges(ctx context.Context, rc *ReleaseContext, updates []*update.WorkloadUpdate, logger *zap.SugaredLogger) error {
-	logger.Info(zap.Int("updates", len(updates)))
+func ApplyChanges(ctx context.Context, rc *ReleaseContext, updates []*update.WorkloadUpdate, logger *zap.Logger) error {
+	logger.Info(
+		"applying releases",
+		zap.Int("updates", len(updates)),
+	)
 	if len(updates) == 0 {
-		logger.Info("exit", "no images to update for services given")
+		logger.Info("no images to update for services given")
 		return nil
 	}
 

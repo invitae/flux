@@ -50,7 +50,6 @@ func daemon(t *testing.T) (*Daemon, func()) {
 	logCfg := zap.NewDevelopmentConfig()
 	logCfg.Encoding = "logfmt"
 	logger, _ := logCfg.Build()
-	sugaredLogger := logger.Sugar()
 	repo, repoCleanup := gittest.Repo(t)
 
 	k8s = &mock.Mock{}
@@ -72,7 +71,7 @@ func daemon(t *testing.T) (*Daemon, func()) {
 		UserEmail: gitEmail,
 	}
 
-	manifests := kubernetes.NewManifests(kubernetes.ConstNamespacer("default"), sugaredLogger)
+	manifests := kubernetes.NewManifests(kubernetes.ConstNamespacer("default"), logger)
 
 	jobs := job.NewQueue(shutdown, wg)
 	d := &Daemon{
@@ -84,7 +83,7 @@ func daemon(t *testing.T) (*Daemon, func()) {
 		Jobs:           jobs,
 		JobStatusCache: &job.StatusCache{Size: 100},
 		EventWriter:    events,
-		Logger:         sugaredLogger,
+		Logger:         logger,
 		LoopVars:       &LoopVars{SyncTimeout: timeout, GitTimeout: timeout},
 	}
 	return d, func() {

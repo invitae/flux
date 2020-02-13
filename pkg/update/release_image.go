@@ -71,7 +71,7 @@ func (s ReleaseImageSpec) ReleaseType() ReleaseType {
 	}
 }
 
-func (s ReleaseImageSpec) CalculateRelease(ctx context.Context, rc ReleaseContext, logger *zap.SugaredLogger) ([]*WorkloadUpdate, Result, error) {
+func (s ReleaseImageSpec) CalculateRelease(ctx context.Context, rc ReleaseContext, logger *zap.Logger) ([]*WorkloadUpdate, Result, error) {
 	results := Result{}
 	timer := NewStageTimer("select_workloads")
 	updates, err := s.selectWorkloads(ctx, rc, results)
@@ -182,7 +182,7 @@ func (s ReleaseImageSpec) markSkipped(results Result) {
 // however we do want to see if we *can* do the replacements, because
 // if not, it indicates there's likely some problem with the running
 // system vs the definitions given in the repo.)
-func (s ReleaseImageSpec) calculateImageUpdates(rc ReleaseContext, candidates []*WorkloadUpdate, results Result, logger *zap.SugaredLogger) ([]*WorkloadUpdate, error) {
+func (s ReleaseImageSpec) calculateImageUpdates(rc ReleaseContext, candidates []*WorkloadUpdate, results Result, logger *zap.Logger) ([]*WorkloadUpdate, error) {
 	// Compile an `ImageRepos` of all relevant images
 	var imageRepos ImageRepos
 	var singleRepo image.CanonicalName

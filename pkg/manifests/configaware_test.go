@@ -39,8 +39,7 @@ func setup(t *testing.T, paths []string, configs ...config) (*configAware, strin
 	logCfg := zap.NewDevelopmentConfig()
 	logCfg.Encoding = "logfmt"
 	logger, _ := logCfg.Build()
-	sugaredLogger := logger.Sugar()
-	manifests := kubernetes.NewManifests(kubernetes.ConstNamespacer("default"), sugaredLogger)
+	manifests := kubernetes.NewManifests(kubernetes.ConstNamespacer("default"), logger)
 	baseDir, cleanup := testfiles.TempDir(t)
 
 	// te constructor NewConfigAware expects at least one absolute path.

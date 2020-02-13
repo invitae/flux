@@ -35,12 +35,11 @@ func TestMemcache_ExpiryReadWrite(t *testing.T) {
 	logCfg := zap.NewDevelopmentConfig()
 	logCfg.Encoding = "logfmt"
 	logger, _ := logCfg.Build()
-	sugaredLogger := logger.Sugar()
 	// Memcache client
 	mc := NewFixedServerMemcacheClient(MemcacheConfig{
 		Timeout:        time.Second,
 		UpdateInterval: 1 * time.Minute,
-		Logger:         sugaredLogger.With(zap.string("component", "memcached")),
+		Logger:         logger.With(zap.string("component", "memcached")),
 	}, strings.Fields(*memcachedIPs)...)
 
 	// Set some dummy data

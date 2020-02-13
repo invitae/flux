@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/fluxcd/flux/pkg/cluster"
@@ -13,14 +12,17 @@ import (
 	"github.com/fluxcd/flux/pkg/update"
 )
 
-func (d *Daemon) pollForNewAutomatedWorkloadImages(logger *zap.SugaredLogger) {
+func (d *Daemon) pollForNewAutomatedWorkloadImages(logger *zap.Logger) {
 	logger.Info("polling for new images for automated workloads")
 
 	ctx := context.Background()
 
 	candidateWorkloads, err := d.getAllowedAutomatedResources(ctx)
 	if err != nil {
-		logger.Error(zap.Error(errors.Wrap(err, "getting unlocked automated resources")))
+		logger.Error(
+			"error getting unlocked automated resources",
+			zap.Error(err),
+		)
 		return
 	}
 	if len(candidateWorkloads) == 0 {
@@ -30,13 +32,19 @@ func (d *Daemon) pollForNewAutomatedWorkloadImages(logger *zap.SugaredLogger) {
 	// Find images to check
 	workloads, err := d.Cluster.SomeWorkloads(ctx, candidateWorkloads.IDs())
 	if err != nil {
-		logger.Error(zap.Error(errors.Wrap(err, "checking workloads for new images")))
+		logger.Error(
+			"error checking workloads for new images",
+			zap.Error(err),
+		)
 		return
 	}
 	// Check the latest available image(s) for each workload
 	imageRepos, err := update.FetchImageRepos(d.Registry, clusterContainers(workloads), logger)
 	if err != nil {
-		logger.Error(zap.Error(errors.Wrap(err, "fetching image updates")))
+		logger.Error(
+			"error fetching image updates",
+			zap.Error(err),
+		)
 		return
 	}
 
@@ -75,7 +83,7 @@ func (d *Daemon) getAllowedAutomatedResources(ctx context.Context) (resources, e
 	return result, nil
 }
 
-func calculateChanges(logger *zap.SugaredLogger, candidateWorkloads resources, workloads []cluster.Workload, imageRepos update.ImageRepos) *update.Automated {
+func calculateChanges(logger *zap.Logger, candidateWorkloads resources, workloads []cluster.Workload, imageRepos update.ImageRepos) *update.Automated {
 	changes := &update.Automated{}
 
 	for _, workload := range workloads {

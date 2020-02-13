@@ -34,7 +34,7 @@ type Upstream struct {
 	apiClient *fluxclient.Client
 	server    api.Server
 	timeout   time.Duration
-	logger    *zap.SugaredLogger
+	logger    *zap.Logger
 	quit      chan struct{}
 
 	ws websocket.Websocket
@@ -50,7 +50,7 @@ var (
 	}, []string{"target"})
 )
 
-func NewUpstream(client *http.Client, ua string, t fluxclient.Token, router *mux.Router, endpoint string, s api.Server, timeout time.Duration, logger *zap.SugaredLogger) (*Upstream, error) {
+func NewUpstream(client *http.Client, ua string, t fluxclient.Token, router *mux.Router, endpoint string, s api.Server, timeout time.Duration, logger *zap.Logger) (*Upstream, error) {
 	httpEndpoint, wsEndpoint, err := inferEndpoints(endpoint)
 	if err != nil {
 		return nil, errors.Wrap(err, "inferring WS/HTTP endpoints")
@@ -115,7 +115,10 @@ func (a *Upstream) loop() {
 		select {
 		case err := <-errc:
 			if err != nil {
-				a.logger.Error(zap.Error(err))
+				a.logger.Error(
+					"upstream error",
+					zap.Error(err),
+				)
 				if err == ErrEndpointDeprecated {
 					// We have logged the deprecation error, now crashloop to garner attention
 					os.Exit(1)
@@ -130,7 +133,11 @@ func (a *Upstream) loop() {
 
 func (a *Upstream) connect() error {
 	a.setConnectionDuration(0)
-	a.logger.Info(zap.Bool("connecting", true))
+	a.logger.Info(
+		"upstream connection",
+		zap.Bool("connecting", true),
+		zap.Bool("connected", false),
+	)
 	ws, err := websocket.Dial(a.client, a.ua, a.token, a.url)
 	if err != nil {
 		if err, ok := err.(*websocket.DialErr); ok && err.HTTPResponse != nil && err.HTTPResponse.StatusCode == http.StatusGone {
@@ -143,9 +150,17 @@ func (a *Upstream) connect() error {
 		a.ws = nil
 		// TODO: handle this error
 		err = ws.Close()
-		a.logger.Info(zap.Bool("connection closing", true), zap.Error(err))
+		a.logger.Info(
+			"upstream connection",
+			zap.Bool("connection closing", true),
+			zap.Error(err),
+		)
 	}()
-	a.logger.Info(zap.Bool("connected", true))
+	a.logger.Info(
+		"upstream connection",
+		zap.Bool("connecting", false),
+		zap.Bool("connected", true),
+	)
 
 	// Instrument connection lifespan
 	connectedAt := time.Now()
@@ -172,7 +187,11 @@ func (a *Upstream) connect() error {
 		return errors.Wrap(err, "initializing rpc server")
 	}
 	rpcserver.ServeConn(ws)
-	a.logger.Info(zap.Bool("disconnected", true))
+	a.logger.Info(
+		"upstream connection",
+		zap.Bool("disconnected", true),
+		zap.Bool("connected", false),
+	)
 	return nil
 }
 

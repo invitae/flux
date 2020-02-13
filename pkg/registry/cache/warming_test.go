@@ -67,7 +67,7 @@ func (c *mem) GetKey(k Keyer) ([]byte, time.Time, error) {
 // Registry implementation will see it.
 func TestWarmThenQuery(t *testing.T) {
 	digest := "abc"
-	logger := zap.NewNop().Sugar()
+	logger := zap.NewNop()
 	warmer, cache := setup(t, &digest)
 
 	now := time.Now()
@@ -107,7 +107,7 @@ func TestWarmManifestUnknown(t *testing.T) {
 	cache := &mem{}
 	warmer := &Warmer{clientFactory: factory, cache: cache, burst: 10}
 
-	logger := zap.NewNop().Sugar()
+	logger := zap.NewNop()
 
 	now := time.Now()
 	redisRef, _ := image.ParseRef("bitnami/redis:5.0.2")
@@ -125,7 +125,7 @@ func TestWarmManifestUnknown(t *testing.T) {
 func TestRefreshDeadline(t *testing.T) {
 	digest := "abc"
 	warmer, cache := setup(t, &digest)
-	logger := zap.NewNop().Sugar()
+	logger := zap.NewNop()
 
 	now0 := time.Now()
 	warmer.warm(context.TODO(), now0, logger, repo, registry.NoCredentials())

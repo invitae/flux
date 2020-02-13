@@ -14,7 +14,7 @@ import (
 	"github.com/fluxcd/flux/pkg/registry"
 )
 
-var noopLog = zap.NewNop().Sugar()
+var noopLog = zap.NewNop()
 
 func makeImagePullSecret(ns, name, host string) *apiv1.Secret {
 	imagePullSecret := apiv1.Secret{Type: apiv1.SecretTypeDockerConfigJson}

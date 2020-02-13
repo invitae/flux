@@ -27,12 +27,11 @@ func TestSync(t *testing.T) {
 	logCfg := zap.NewDevelopmentConfig()
 	logCfg.Encoding = "logfmt"
 	logger, _ := logCfg.Build()
-	sugaredLogger := logger.Sugar()
 	checkout, cleanup := setup(t)
 	defer cleanup()
 
 	// Start with nothing running. We should be told to apply all the things.
-	parser := kubernetes.NewManifests(kubernetes.ConstNamespacer("default"), sugaredLogger)
+	parser := kubernetes.NewManifests(kubernetes.ConstNamespacer("default"), logger)
 	clus := &syncCluster{map[string]string{}}
 
 	dirs := checkout.AbsolutePaths()

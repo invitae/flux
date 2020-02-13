@@ -98,7 +98,7 @@ type Cluster struct {
 	applier Applier
 
 	version    string // string response for the version command.
-	logger     *zap.SugaredLogger
+	logger     *zap.Logger
 	sshKeyRing ssh.KeyRing
 
 	// syncErrors keeps a record of all per-resource errors during
@@ -115,7 +115,7 @@ type Cluster struct {
 }
 
 // NewCluster returns a usable cluster.
-func NewCluster(client ExtendedClient, applier Applier, sshKeyRing ssh.KeyRing, logger *zap.SugaredLogger, allowedNamespaces map[string]struct{}, imageExcludeList []string, resourceExcludeList []string) *Cluster {
+func NewCluster(client ExtendedClient, applier Applier, sshKeyRing ssh.KeyRing, logger *zap.Logger, allowedNamespaces map[string]struct{}, imageExcludeList []string, resourceExcludeList []string) *Cluster {
 	c := &Cluster{
 		client:              client,
 		applier:             applier,

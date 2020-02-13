@@ -34,7 +34,7 @@ func (loop *LoopVars) ensureInit() {
 	})
 }
 
-func (d *Daemon) Loop(stop chan struct{}, wg *sync.WaitGroup, logger *zap.SugaredLogger) {
+func (d *Daemon) Loop(stop chan struct{}, wg *sync.WaitGroup, logger *zap.Logger) {
 	defer wg.Done()
 
 	// We want to sync at least every `SyncInterval`. Being told to
@@ -73,8 +73,11 @@ func (d *Daemon) Loop(stop chan struct{}, wg *sync.WaitGroup, logger *zap.Sugare
 	for {
 		select {
 		case <-stop:
+			logger.Info(
+				"stopping",
+				zap.Bool("stopping", true),
+			)
 			return
-			logger.Info(zap.Bool("stopping", true))
 		case <-d.automatedWorkloadsSoon:
 			if !automatedWorkloadTimer.Stop() {
 				select {
@@ -104,7 +107,10 @@ func (d *Daemon) Loop(stop chan struct{}, wg *sync.WaitGroup, logger *zap.Sugare
 				fluxmetrics.LabelSuccess, fmt.Sprint(err == nil),
 			).Observe(time.Since(started).Seconds())
 			if err != nil {
-				logger.Error(zap.Error(err))
+				logger.Error(
+					"sync error",
+					zap.Error(err),
+				)
 			}
 			syncTimer.Reset(d.SyncInterval)
 		case <-syncTimer.C:
@@ -123,14 +129,24 @@ func (d *Daemon) Loop(stop chan struct{}, wg *sync.WaitGroup, logger *zap.Sugare
 			cancel()
 
 			if err != nil {
-				logger.Error(zap.String("url", d.Repo.Origin().SafeURL()), zap.Error(err))
+				logger.Error(
+					"sync error",
+					zap.String("url", d.Repo.Origin().SafeURL()),
+					zap.Error(err),
+				)
 				continue
 			}
 			if invalidCommit.Revision != "" {
 				logger.Error("found invalid GPG signature for commit", zap.String("revision", invalidCommit.Revision), zap.String("key", invalidCommit.Signature.Key))
 			}
 
-			logger.Info(zap.String("event", "refreshed"), zap.String("url", d.Repo.Origin().SafeURL()), zap.String("branch", d.GitConfig.Branch), zap.String("HEAD", newSyncHead))
+			logger.Info(
+				"sync success",
+				zap.String("event", "refreshed"),
+				zap.String("url", d.Repo.Origin().SafeURL()),
+				zap.String("branch", d.GitConfig.Branch),
+				zap.String("HEAD", newSyncHead),
+			)
 			if newSyncHead != syncHead {
 				syncHead = newSyncHead
 				d.AskForSync()
@@ -138,7 +154,10 @@ func (d *Daemon) Loop(stop chan struct{}, wg *sync.WaitGroup, logger *zap.Sugare
 		case job := <-d.Jobs.Ready():
 			queueLength.Set(float64(d.Jobs.Len()))
 			jobLogger := logger.With(zap.Any("jobID", job.ID))
-			jobLogger.Info(zap.String("state", "in-progress"))
+			jobLogger.Info(
+				"job",
+				zap.String("state", "in-progress"),
+			)
 			// It's assumed that (successful) jobs will push commits
 			// to the upstream repo, and therefore we probably want to
 			// pull from there and sync the cluster afterwards.
@@ -148,13 +167,25 @@ func (d *Daemon) Loop(stop chan struct{}, wg *sync.WaitGroup, logger *zap.Sugare
 				fluxmetrics.LabelSuccess, fmt.Sprint(err == nil),
 			).Observe(time.Since(start).Seconds())
 			if err != nil {
-				jobLogger.Info(zap.String("state", "done"), zap.Bool("success", false), zap.Error(err))
+				jobLogger.Info(
+					"job failure",
+					zap.String("state", "done"),
+					zap.Bool("success", false),
+					zap.Error(err),
+				)
 			} else {
-				jobLogger.Info(zap.String("state", "done"), zap.Bool("success", true))
+				jobLogger.Error(
+					"job success",
+					zap.String("state", "done"),
+					zap.Bool("success", true),
+				)
 				ctx, cancel := context.WithTimeout(context.Background(), d.GitTimeout)
 				err := d.Repo.Refresh(ctx)
 				if err != nil {
-					logger.Error(zap.Error(err))
+					logger.Error(
+						"repo refresh failure",
+						zap.Error(err),
+					)
 				}
 				cancel()
 			}
@@ -182,7 +213,7 @@ func (d *LoopVars) AskForAutomatedWorkloadImageUpdates() {
 
 // -- internals to keep track of sync tag state
 type lastKnownSyncState struct {
-	logger *zap.SugaredLogger
+	logger *zap.Logger
 	state  fluxsync.State
 
 	// bookkeeping
@@ -224,6 +255,11 @@ func (s *lastKnownSyncState) Update(ctx context.Context, oldRev, newRev string) 
 	// Update in-memory revision
 	s.revision = newRev
 
-	s.logger.Info(zap.String("state", s.state.String()), zap.String("old", oldRev), zap.String("new", newRev))
+	s.logger.Info(
+		"sync update",
+		zap.String("state", s.state.String()),
+		zap.String("old", oldRev),
+		zap.String("new", newRev),
+	)
 	return true, nil
 }

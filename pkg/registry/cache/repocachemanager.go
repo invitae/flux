@@ -30,14 +30,14 @@ type repoCacheManager struct {
 	clientTimeout time.Duration
 	burst         int
 	trace         bool
-	logger        *zap.SugaredLogger
+	logger        *zap.Logger
 	cacheClient   Client
 	sync.Mutex
 }
 
 func newRepoCacheManager(now time.Time,
 	repoID image.Name, clientFactory registry.ClientFactory, creds registry.Credentials, repoClientTimeout time.Duration,
-	burst int, trace bool, logger *zap.SugaredLogger, cacheClient Client) (*repoCacheManager, error) {
+	burst int, trace bool, logger *zap.Logger, cacheClient Client) (*repoCacheManager, error) {
 	client, err := clientFactory.ClientFor(repoID.CanonicalName(), creds)
 	if err != nil {
 		return nil, err
@@ -132,7 +132,10 @@ func (c *repoCacheManager) fetchImages(tags []string) (fetchImagesResult, error)
 			missing++
 			toUpdate = append(toUpdate, imageToUpdate{ref: newID, previousRefresh: initialRefresh})
 		case len(bytes) == 0:
-			c.logger.Warn("empty result from cache", "ref", newID)
+			c.logger.Warn(
+				"empty result from cache",
+				zap.String("ref", newID.String()),
+			)
 			missing++
 			toUpdate = append(toUpdate, imageToUpdate{ref: newID, previousRefresh: initialRefresh})
 		default:
@@ -234,11 +237,17 @@ updates:
 					manifestUnknownCount++
 					c.Unlock()
 					c.logger.Warn(
-						fmt.Sprintf("manifest for tag %s missing in repository %s", up.ref.Tag, up.ref.Name),
+						"manifest for tag missing in repository",
+						zap.String("name", up.ref.Name.String()),
+						zap.String("tag", up.ref.Tag),
 						zap.String("impact", "flux will fail to auto-release workloads with matching images, ask the repository administrator to fix the inconsistency"),
 					)
 				default:
-					c.logger.Error(zap.Error(err), zap.Any("ref", up.ref))
+					c.logger.Error(
+						"error updating image cache",
+						zap.Error(err),
+						zap.String("ref", up.ref.String()),
+					)
 				}
 				return
 			}
@@ -276,14 +285,14 @@ func (c *repoCacheManager) updateImage(ctx context.Context, update imageToUpdate
 		if _, ok := err.(*image.LabelTimestampFormatError); !ok {
 			return registry.ImageEntry{}, err
 		}
-		c.logger.Error(zap.Error(err), zap.Any("ref", imageID))
+		c.logger.Error("error refreshing manifest", zap.Error(err), zap.String("ref", imageID.String()))
 	}
 
 	refresh := update.previousRefresh
 	reason := ""
 	switch {
 	case entry.ExcludedReason != "":
-		c.logger.Info(zap.String("excluded", entry.ExcludedReason), zap.Any("ref", imageID))
+		c.logger.Info("image excluded", zap.String("excluded", entry.ExcludedReason), zap.Any("ref", imageID))
 		refresh = excludedRefresh
 		reason = "image is excluded"
 	case update.previousDigest == "":

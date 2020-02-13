@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"net/http"
-	"strconv"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -31,7 +30,7 @@ const (
 type RateLimiters struct {
 	RPS     float64
 	Burst   int
-	Logger  *zap.SugaredLogger
+	Logger  *zap.Logger
 	perHost map[string]*rate.Limiter
 	mu      sync.Mutex
 }
@@ -90,7 +89,10 @@ func (limiters *RateLimiters) Recover(host string) {
 		newLimit := limiters.clip(oldLimit * recoverBy)
 		if newLimit != oldLimit && limiters.Logger != nil {
 			limiters.Logger.Info(
-				"increasing rate limit", "host", host, "limit", strconv.FormatFloat(newLimit, 'f', 2, 64))
+				"increasing rate limit",
+				zap.String("host", host),
+				zap.Float64("limit", newLimit),
+			)
 		}
 		limiter.SetLimit(rate.Limit(newLimit))
 	}

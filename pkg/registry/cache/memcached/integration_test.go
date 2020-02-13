@@ -33,11 +33,10 @@ func TestWarming_WarmerWriteCacheRead(t *testing.T) {
 	logCfg := zap.NewDevelopmentConfig()
 	logCfg.Encoding = "logfmt"
 	logger, _ := logCfg.Build()
-	sugaredLogger := logger.Sugar()
 	mc := NewFixedServerMemcacheClient(MemcacheConfig{
 		Timeout:        time.Second,
 		UpdateInterval: 1 * time.Minute,
-		Logger:         sugaredLogger.With(zap.String("component", "memcached")),
+		Logger:         logger.With(zap.String("component", "memcached")),
 	}, strings.Fields(*memcachedIPs)...)
 
 	// This repo has a stable number of images in the low tens (just
@@ -50,7 +49,7 @@ func TestWarming_WarmerWriteCacheRead(t *testing.T) {
 	id, _ := image.ParseRef("docker.io/weaveworks/flagger-loadtester")
 
 	remote := &registry.RemoteClientFactory{
-		Logger:   sugaredLogger.With(zap.String("component", "client")),
+		Logger:   logger.With(zap.String("component", "client")),
 		Limiters: &middleware.RateLimiters{RPS: 10, Burst: 5},
 		Trace:    true,
 	}
@@ -66,7 +65,7 @@ func TestWarming_WarmerWriteCacheRead(t *testing.T) {
 	}()
 
 	shutdownWg.Add(1)
-	go w.Loop(sugaredLogger.With(zap.String("component", "warmer")), shutdown, shutdownWg, func() registry.ImageCreds {
+	go w.Loop(logger.With(zap.String("component", "warmer")), shutdown, shutdownWg, func() registry.ImageCreds {
 		return registry.ImageCreds{
 			id.Name: registry.NoCredentials(),
 		}

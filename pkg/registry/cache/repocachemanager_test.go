@@ -33,9 +33,8 @@ func Test_ClientTimeouts(t *testing.T) {
 	logCfg := zap.NewDevelopmentConfig()
 	logCfg.Encoding = "logfmt"
 	logger, _ := logCfg.Build()
-	sugaredLogger := logger.Sugar()
 	cf := &registry.RemoteClientFactory{
-		Logger:        sugaredLogger,
+		Logger:        logger,
 		Limiters:      nil,
 		Trace:         false,
 		InsecureHosts: []string{url.Host},
@@ -52,7 +51,7 @@ func Test_ClientTimeouts(t *testing.T) {
 		timeout,
 		1,
 		false,
-		sugaredLogger,
+		logger,
 		nil,
 	)
 	assert.NoError(t, err)

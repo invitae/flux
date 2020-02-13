@@ -77,7 +77,7 @@ func contains(strs []string, str string) bool {
 //  with the exception
 //  - if account IDs to _exclude_ are supplied, those shall be not be
 //    included
-func ImageCredsWithAWSAuth(lookup func() ImageCreds, logger *zap.SugaredLogger, config AWSRegistryConfig) (func() error, func() ImageCreds) {
+func ImageCredsWithAWSAuth(lookup func() ImageCreds, logger *zap.Logger, config AWSRegistryConfig) (func() error, func() ImageCreds) {
 	// only ever do the preflight check once; all subsequent calls
 	// will succeed trivially, so the first caller should pay
 	// attention to the return value.
@@ -194,7 +194,10 @@ func ImageCredsWithAWSAuth(lookup func() ImageCreds, logger *zap.SugaredLogger, 
 		// the AWS API figure out if it's a duplicate.
 		accountIDs := append(allAccountIDsInRegion(awsCreds.Hosts(), region), accountID)
 		logger.Info(
-			"attempting to refresh auth tokens", "region", region, "account-ids", strings.Join(accountIDs, ", "))
+			"attempting to refresh auth tokens",
+			zap.String("region", region),
+			zap.Strings("account-ids", accountIDs),
+		)
 		regionCreds, expiry, err := fetchAWSCreds(region, accountIDs)
 		if err != nil {
 			regionEmbargo[region] = now.Add(embargoDuration)

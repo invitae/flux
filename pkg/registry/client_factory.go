@@ -19,7 +19,7 @@ import (
 )
 
 type RemoteClientFactory struct {
-	Logger   *zap.SugaredLogger
+	Logger   *zap.Logger
 	Limiters *middleware.RateLimiters
 	Trace    bool
 
@@ -32,16 +32,16 @@ type RemoteClientFactory struct {
 }
 
 type logging struct {
-	logger    *zap.SugaredLogger
+	logger    *zap.Logger
 	transport http.RoundTripper
 }
 
 func (t *logging) RoundTrip(req *http.Request) (*http.Response, error) {
 	res, err := t.transport.RoundTrip(req)
 	if err == nil {
-		t.logger.Info(zap.String("url", req.URL.String()), zap.String("status", res.Status))
+		t.logger.Info("request success", zap.String("url", req.URL.String()), zap.String("status", res.Status))
 	} else {
-		t.logger.Info(zap.String("url", req.URL.String()), zap.Error(err))
+		t.logger.Error("request failure", zap.String("url", req.URL.String()), zap.Error(err))
 	}
 	return res, err
 }
@@ -143,7 +143,8 @@ insecureCheckLoop:
 
 	cred := creds.credsFor(repo.Domain)
 	if f.Trace {
-		f.Logger.Info(
+		f.Logger.Debug(
+			"registry info",
 			zap.String("repo", repo.String()),
 			zap.String("auth", cred.String()),
 			zap.String("api", registryURL.String()),

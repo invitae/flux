@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"github.com/ryanuber/go-glob"
 	"go.uber.org/zap"
 	apiv1 "k8s.io/api/core/v1"
@@ -16,7 +15,7 @@ import (
 	"github.com/fluxcd/flux/pkg/resource"
 )
 
-func mergeCredentials(logger *zap.SugaredLogger,
+func mergeCredentials(logger *zap.Logger,
 	includeImage func(imageName string) bool,
 	client ExtendedClient,
 	namespace string, podTemplate apiv1.PodTemplateSpec,
@@ -26,7 +25,7 @@ func mergeCredentials(logger *zap.SugaredLogger,
 	for _, container := range podTemplate.Spec.InitContainers {
 		r, err := image.ParseRef(container.Image)
 		if err != nil {
-			logger.Error(zap.Error(err))
+			logger.Error("error parsing container image", zap.String("image", container.Image), zap.Error(err))
 			continue
 		}
 		if includeImage(r.CanonicalName().Name.String()) {
@@ -37,7 +36,7 @@ func mergeCredentials(logger *zap.SugaredLogger,
 	for _, container := range podTemplate.Spec.Containers {
 		r, err := image.ParseRef(container.Image)
 		if err != nil {
-			logger.Error(zap.Error(err))
+			logger.Error("error parsing container image", zap.String("image", container.Image), zap.Error(err))
 			continue
 		}
 		if includeImage(r.CanonicalName().Name.String()) {
@@ -76,7 +75,12 @@ func mergeCredentials(logger *zap.SugaredLogger,
 
 		secret, err := client.CoreV1().Secrets(namespace).Get(name, meta_v1.GetOptions{})
 		if err != nil {
-			logger.Error(zap.Error(err))
+			logger.Error(
+				"error retrieving secret",
+				zap.String("name", name),
+				zap.String("namespace", namespace),
+				zap.Error(err),
+			)
 			imagePullSecretCache[namespacedSecretName] = registry.NoCredentials()
 			continue
 		}
@@ -91,13 +95,23 @@ func mergeCredentials(logger *zap.SugaredLogger,
 		case apiv1.SecretTypeDockerConfigJson:
 			decoded, ok = secret.Data[apiv1.DockerConfigJsonKey]
 		default:
-			logger.Info(zap.String("skip", "unknown type"), zap.String("secret", namespace+"/"+secret.Name), zap.Any("type", secret.Type))
+			logger.Info(
+				"unknown secret type",
+				zap.String("skip", "unknown type"),
+				zap.String("secret", namespace+"/"+secret.Name),
+				zap.String("type", string(secret.Type)),
+			)
 			imagePullSecretCache[namespacedSecretName] = registry.NoCredentials()
 			continue
 		}
 
 		if !ok {
-			logger.Error(zap.Error(errors.Wrapf(err, "retrieving pod secret %q", secret.Name)))
+			logger.Error(
+				"error retrieving pod secret",
+				zap.String("name", secret.Name),
+				zap.String("namespace", namespace),
+				zap.Error(err),
+			)
 			imagePullSecretCache[namespacedSecretName] = registry.NoCredentials()
 			continue
 		}
@@ -105,7 +119,12 @@ func mergeCredentials(logger *zap.SugaredLogger,
 		// Parse secret
 		crd, err := registry.ParseCredentials(fmt.Sprintf("%s:secret/%s", namespace, name), decoded)
 		if err != nil {
-			logger.Error(zap.Error(err))
+			logger.Error(
+				"error parsing credentials",
+				zap.String("secret_name", secret.Name),
+				zap.String("namespace", namespace),
+				zap.Error(err),
+			)
 			imagePullSecretCache[namespacedSecretName] = registry.NoCredentials()
 			continue
 		}
@@ -128,7 +147,10 @@ func (c *Cluster) ImagesToFetch() registry.ImageCreds {
 
 	namespaces, err := c.getAllowedAndExistingNamespaces(ctx)
 	if err != nil {
-		c.logger.Error(zap.Error(errors.Wrap(err, "getting namespaces")))
+		c.logger.Error(
+			"error getting namespaces",
+			zap.Error(err),
+		)
 		return allImageCreds
 	}
 
@@ -141,7 +163,12 @@ func (c *Cluster) ImagesToFetch() registry.ImageCreds {
 					// Skip unsupported or forbidden resource kinds
 					continue
 				}
-				c.logger.Error(zap.Error(errors.Wrapf(err, "getting kind %s for namespace %s", kind, ns)))
+				c.logger.Error(
+					"error getting resource",
+					zap.String("kind", kind),
+					zap.String("namespace", ns),
+					zap.Error(err),
+				)
 			}
 
 			imageCreds := make(registry.ImageCreds)
