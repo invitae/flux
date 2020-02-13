@@ -703,19 +703,19 @@ func main() {
 	}
 
 	logger.Info(
-		"url", gitRemote.SafeURL(),
-		"user", *gitUser,
-		"email", *gitEmail,
-		"signing-key", *gitSigningKey,
-		"verify-signatures", *gitVerifySignatures,
-		"sync-tag", *gitSyncTag,
-		"state", *syncState,
-		"readonly", *gitReadonly,
-		"registry-disable-scanning", *registryDisableScanning,
-		"notes-ref", *gitNotesRef,
-		"set-author", *gitSetAuthor,
-		"git-secret", *gitSecret,
-		"sops", *sopsEnabled,
+		zap.String("url", gitRemote.SafeURL()),
+		zap.String("user", *gitUser),
+		zap.String("email", *gitEmail),
+		zap.String("signing-key", *gitSigningKey),
+		zap.Bool("verify-signatures", *gitVerifySignatures),
+		zap.String("sync-tag", *gitSyncTag),
+		zap.String("state", *syncState),
+		zap.Bool("readonly", *gitReadonly),
+		zap.String("registry-disable-scanning", *registryDisableScanning),
+		zap.String("notes-ref", *gitNotesRef),
+		zap.Bool("set-author", *gitSetAuthor),
+		zap.Bool("git-secret", *gitSecret),
+		zap.Bool("sops", *sopsEnabled),
 	)
 
 	var jobs *job.Queue
