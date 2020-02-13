@@ -1,24 +1,15 @@
 package registry
 
 import (
-	"fmt"
-	"sync"
-)
-
-// References:
-//  - https://github.com/bzon/ecr-k8s-secret-creator
-//  - https://github.com/kubernetes/kubernetes/blob/master/pkg/credentialprovider/aws/aws_credentials.go
-//  - https://github.com/fluxcd/flux/pull/1455
-
-import (
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
-	"github.com/go-kit/kit/log"
+	"go.uber.org/zap"
 )
 
 const (
@@ -86,7 +77,7 @@ func contains(strs []string, str string) bool {
 //  with the exception
 //  - if account IDs to _exclude_ are supplied, those shall be not be
 //    included
-func ImageCredsWithAWSAuth(lookup func() ImageCreds, logger log.Logger, config AWSRegistryConfig) (func() error, func() ImageCreds) {
+func ImageCredsWithAWSAuth(lookup func() ImageCreds, logger *zap.SugaredLogger, config AWSRegistryConfig) (func() error, func() ImageCreds) {
 	// only ever do the preflight check once; all subsequent calls
 	// will succeed trivially, so the first caller should pay
 	// attention to the return value.
@@ -101,10 +92,12 @@ func ImageCredsWithAWSAuth(lookup func() ImageCreds, logger log.Logger, config A
 		preflightOnce.Do(func() {
 
 			defer func() {
-				logger.Log("info", "restricting ECR registry scans",
-					"regions", fmt.Sprintf("%v", config.Regions),
-					"include-ids", fmt.Sprintf("%v", config.AccountIDs),
-					"exclude-ids", fmt.Sprintf("%v", config.BlockIDs))
+				logger.Info(
+					"restricting ECR registry scans",
+					zap.Strings("regions", config.Regions),
+					zap.Strings("include-ids", config.AccountIDs),
+					zap.Strings("exclude-ids", config.BlockIDs),
+				)
 			}()
 
 			// This forces the AWS SDK to load config, so we can get
@@ -121,7 +114,7 @@ func ImageCredsWithAWSAuth(lookup func() ImageCreds, logger log.Logger, config A
 				if config.Regions == nil {
 					config.Regions = []string{}
 				}
-				logger.Log("error", "fetching region for AWS", "err", err)
+				logger.Error("fetching region for AWS", zap.Error(err))
 				return
 			}
 
@@ -135,7 +128,11 @@ func ImageCredsWithAWSAuth(lookup func() ImageCreds, logger log.Logger, config A
 					clusterRegion = metadataRegion
 					regionSource = "EC2 metadata service"
 				}
-				logger.Log("info", "detected cluster region", "source", regionSource, "region", clusterRegion)
+				logger.Info(
+					"detected cluster region",
+					zap.String("source", regionSource),
+					zap.String("region", clusterRegion),
+				)
 				config.Regions = []string{clusterRegion}
 			}
 		})
@@ -196,11 +193,17 @@ func ImageCredsWithAWSAuth(lookup func() ImageCreds, logger log.Logger, config A
 		// unconditionally append the sought-after account, and let
 		// the AWS API figure out if it's a duplicate.
 		accountIDs := append(allAccountIDsInRegion(awsCreds.Hosts(), region), accountID)
-		logger.Log("info", "attempting to refresh auth tokens", "region", region, "account-ids", strings.Join(accountIDs, ", "))
+		logger.Info(
+			"attempting to refresh auth tokens", "region", region, "account-ids", strings.Join(accountIDs, ", "))
 		regionCreds, expiry, err := fetchAWSCreds(region, accountIDs)
 		if err != nil {
 			regionEmbargo[region] = now.Add(embargoDuration)
-			logger.Log("error", "fetching credentials for AWS region", "region", region, "err", err, "embargo", embargoDuration)
+			logger.Error(
+				"fetching credentials for AWS region",
+				zap.String("region", region),
+				zap.Error(err),
+				zap.Duration("embargo", embargoDuration),
+			)
 			return err
 		}
 		regionExpire[region] = expiry
@@ -216,7 +219,7 @@ func ImageCredsWithAWSAuth(lookup func() ImageCreds, logger log.Logger, config A
 			if strings.HasSuffix(domain, ecrHostSuffix) {
 				bits := strings.Split(domain, ".")
 				if len(bits) != 6 || bits[1] != "dkr" || bits[2] != "ecr" {
-					logger.Log("warning", "AWS registry domain not in expected format <account-id>.dkr.ecr.<region>.amazonaws.com", "domain", domain)
+					logger.Warn("AWS registry domain not in expected format <account-id>.dkr.ecr.<region>.amazonaws.com", zap.String("domain", domain))
 					continue
 				}
 				accountID := bits[0]
@@ -233,12 +236,20 @@ func ImageCredsWithAWSAuth(lookup func() ImageCreds, logger log.Logger, config A
 				}
 
 				if preflightErr != nil {
-					logger.Log("warning", "AWS auth implied by ECR image, but AWS API is not available. You can ignore this if you are providing credentials some other way (e.g., through imagePullSecrets)", "image", name.String(), "err", preflightErr)
+					logger.Warn(
+						"AWS auth implied by ECR image, but AWS API is not available. You can ignore this if you are providing credentials some other way (e.g., through imagePullSecrets)",
+						zap.String("image", name.String()),
+						zap.Error(preflightErr),
+					)
 				}
 
 				if okToUseAWS {
 					if err := ensureCreds(domain, region, accountID, time.Now()); err != nil {
-						logger.Log("warning", "unable to ensure credentials for ECR", "domain", domain, "err", err)
+						logger.Warn(
+							"unable to ensure credentials for ECR",
+							zap.String("domain", domain),
+							zap.Error(err),
+						)
 					}
 					newCreds := NoCredentials()
 					newCreds.Merge(awsCreds)

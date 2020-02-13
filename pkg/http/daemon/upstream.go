@@ -10,11 +10,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 
 	"github.com/fluxcd/flux/pkg/api"
 	"github.com/fluxcd/flux/pkg/event"
@@ -34,7 +34,7 @@ type Upstream struct {
 	apiClient *fluxclient.Client
 	server    api.Server
 	timeout   time.Duration
-	logger    log.Logger
+	logger    *zap.SugaredLogger
 	quit      chan struct{}
 
 	ws websocket.Websocket
@@ -50,7 +50,7 @@ var (
 	}, []string{"target"})
 )
 
-func NewUpstream(client *http.Client, ua string, t fluxclient.Token, router *mux.Router, endpoint string, s api.Server, timeout time.Duration, logger log.Logger) (*Upstream, error) {
+func NewUpstream(client *http.Client, ua string, t fluxclient.Token, router *mux.Router, endpoint string, s api.Server, timeout time.Duration, logger *zap.SugaredLogger) (*Upstream, error) {
 	httpEndpoint, wsEndpoint, err := inferEndpoints(endpoint)
 	if err != nil {
 		return nil, errors.Wrap(err, "inferring WS/HTTP endpoints")
@@ -115,7 +115,7 @@ func (a *Upstream) loop() {
 		select {
 		case err := <-errc:
 			if err != nil {
-				a.logger.Log("err", err)
+				a.logger.Error(zap.Error(err))
 				if err == ErrEndpointDeprecated {
 					// We have logged the deprecation error, now crashloop to garner attention
 					os.Exit(1)
@@ -130,7 +130,7 @@ func (a *Upstream) loop() {
 
 func (a *Upstream) connect() error {
 	a.setConnectionDuration(0)
-	a.logger.Log("connecting", true)
+	a.logger.Info(zap.Bool("connecting", true))
 	ws, err := websocket.Dial(a.client, a.ua, a.token, a.url)
 	if err != nil {
 		if err, ok := err.(*websocket.DialErr); ok && err.HTTPResponse != nil && err.HTTPResponse.StatusCode == http.StatusGone {
@@ -142,9 +142,10 @@ func (a *Upstream) connect() error {
 	defer func() {
 		a.ws = nil
 		// TODO: handle this error
-		a.logger.Log("connection closing", true, "err", ws.Close())
+		err = ws.Close()
+		a.logger.Info(zap.Bool("connection closing", true), zap.Error(err))
 	}()
-	a.logger.Log("connected", true)
+	a.logger.Info(zap.Bool("connected", true))
 
 	// Instrument connection lifespan
 	connectedAt := time.Now()
@@ -171,7 +172,7 @@ func (a *Upstream) connect() error {
 		return errors.Wrap(err, "initializing rpc server")
 	}
 	rpcserver.ServeConn(ws)
-	a.logger.Log("disconnected", true)
+	a.logger.Info(zap.Bool("disconnected", true))
 	return nil
 }
 

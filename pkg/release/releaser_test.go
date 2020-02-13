@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"go.uber.org/zap"
 
 	"github.com/stretchr/testify/assert"
 
@@ -754,7 +755,7 @@ func Test_UpdateMultidoc(t *testing.T) {
 		ImageSpec:    update.ImageSpecLatest,
 		Kind:         update.ReleaseKindExecute,
 	}
-	results, err := Release(context.Background(), rc, spec, log.NewNopLogger())
+	results, err := Release(context.Background(), rc, spec, zap.NewNop().Sugar())
 	if err != nil {
 		t.Error(err)
 	}
@@ -801,7 +802,7 @@ func Test_UpdateList(t *testing.T) {
 		ImageSpec:    update.ImageSpecLatest,
 		Kind:         update.ReleaseKindExecute,
 	}
-	results, err := Release(context.Background(), rc, spec, log.NewNopLogger())
+	results, err := Release(context.Background(), rc, spec, zap.NewNop().Sugar())
 	if err != nil {
 		t.Error(err)
 	}
@@ -1030,7 +1031,7 @@ func Test_UpdateContainers(t *testing.T) {
 				specs.SkipMismatches = ignoreMismatches
 				specs.Force = tst.Force
 
-				results, err := Release(ctx, rc, specs, log.NewNopLogger())
+				results, err := Release(ctx, rc, specs, zap.NewNop().Sugar())
 
 				assert.Equal(t, expected.Err, err)
 				if expected.Err == nil {
@@ -1043,7 +1044,7 @@ func Test_UpdateContainers(t *testing.T) {
 }
 
 func testRelease(t *testing.T, rc *ReleaseContext, spec update.ReleaseImageSpec, expected update.Result) {
-	results, err := Release(context.Background(), rc, spec, log.NewNopLogger())
+	results, err := Release(context.Background(), rc, spec, zap.NewNop().Sugar())
 	assert.NoError(t, err)
 	assert.Equal(t, expected, results)
 }
@@ -1077,7 +1078,7 @@ func Test_BadRelease(t *testing.T) {
 		resourceStore: NewManifestStoreOrFail(t, manifests, checkout1),
 		registry:      mockRegistry,
 	}
-	_, err := Release(ctx, rc, spec, log.NewNopLogger())
+	_, err := Release(ctx, rc, spec, zap.NewNop().Sugar())
 	if err != nil {
 		t.Fatal("release with 'good' manifests should succeed, but errored:", err)
 	}
@@ -1090,7 +1091,7 @@ func Test_BadRelease(t *testing.T) {
 		resourceStore: NewManifestStoreOrFail(t, &badManifests{manifests}, checkout2),
 		registry:      mockRegistry,
 	}
-	_, err = Release(ctx, rc, spec, log.NewNopLogger())
+	_, err = Release(ctx, rc, spec, zap.NewNop().Sugar())
 	if err == nil {
 		t.Fatal("did not return an error, but was expected to fail verification")
 	}

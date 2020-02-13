@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"fmt"
-	"github.com/fluxcd/flux/pkg/metrics"
-	"github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 	"path/filepath"
 	"time"
+
+	"github.com/fluxcd/flux/pkg/metrics"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/fluxcd/flux/pkg/cluster"
 	"github.com/fluxcd/flux/pkg/event"
@@ -51,7 +51,7 @@ func (d *Daemon) Sync(ctx context.Context, started time.Time, newRevision string
 	cancel()
 	defer func() {
 		if err := working.Clean(); err != nil {
-			d.Logger.Log("error", fmt.Sprintf("cannot clean sync clone: %s", err))
+			d.Logger.Error("cannot clean sync clone", zap.Error(err))
 		}
 	}()
 
@@ -70,7 +70,11 @@ func (d *Daemon) Sync(ctx context.Context, started time.Time, newRevision string
 		return err
 	}
 
-	d.Logger.Log("info", "trying to sync git changes to the cluster", "old", c.oldTagRev, "new", c.newTagRev)
+	d.Logger.Info(
+		"trying to sync git changes to the cluster",
+		zap.String("old", c.oldTagRev),
+		zap.String("new", c.newTagRev),
+	)
 
 	// Run actual sync of resources on cluster
 	syncSetName := makeGitConfigHash(d.Repo.Origin(), d.GitConfig)
@@ -108,7 +112,7 @@ func (d *Daemon) Sync(ctx context.Context, started time.Time, newRevision string
 	// Report all collected events
 	for _, event := range noteEvents {
 		if err = d.LogEvent(event); err != nil {
-			d.Logger.Log("err", err)
+			d.Logger.Error(zap.Error(err))
 			// Abort early to ensure at least once delivery of events
 			return err
 		}
@@ -154,7 +158,7 @@ func getChangeSet(ctx context.Context, state revisionRatchet, headRev string, re
 // doSync runs the actual sync of workloads on the cluster. It returns
 // a map with all resources it applied and sync errors it encountered.
 func doSync(ctx context.Context, manifestsStore manifests.Store, clus cluster.Cluster, syncSetName string,
-	logger log.Logger) (map[string]resource.Resource, []event.ResourceError, error) {
+	logger *zap.SugaredLogger) (map[string]resource.Resource, []event.ResourceError, error) {
 	resources, err := manifestsStore.GetAllResourcesByID(ctx)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "loading resources from repo")
@@ -164,7 +168,7 @@ func doSync(ctx context.Context, manifestsStore manifests.Store, clus cluster.Cl
 	if err := fluxsync.Sync(syncSetName, resources, clus); err != nil {
 		switch syncerr := err.(type) {
 		case cluster.SyncError:
-			logger.Log("err", err)
+			logger.Error(zap.Error(err))
 			updateSyncManifestsMetric(len(resources)-len(syncerr), len(syncerr))
 			for _, e := range syncerr {
 				resourceErrors = append(resourceErrors, event.ResourceError{
@@ -252,7 +256,7 @@ func (d *Daemon) getNotes(ctx context.Context, timeout time.Duration) (map[strin
 // autoreleases, that we're already posting as events, so upstream
 // can skip the sync event if it wants to.
 func (d *Daemon) collectNoteEvents(ctx context.Context, c changeSet, notes map[string]struct{}, timeout time.Duration,
-	started time.Time, logger log.Logger) ([]event.Event, map[string]bool, error) {
+	started time.Time, logger *zap.SugaredLogger) ([]event.Event, map[string]bool, error) {
 	if len(c.commits) == 0 {
 		return nil, nil, nil
 	}
@@ -288,7 +292,7 @@ func (d *Daemon) collectNoteEvents(ctx context.Context, c changeSet, notes map[s
 		// notes on an initial sync, since they (most likely)
 		// don't belong to us.
 		if c.initialSync {
-			logger.Log("warning", "no notes expected on initial sync; this repo may be in use by another fluxd")
+			logger.Warn("no notes expected on initial sync; this repo may be in use by another fluxd")
 			return noteEvents, eventTypes, nil
 		}
 
@@ -370,7 +374,7 @@ func (d *Daemon) collectNoteEvents(ctx context.Context, c changeSet, notes map[s
 
 // logCommitEvent reports all synced commits to the upstream.
 func logCommitEvent(el eventLogger, c changeSet, serviceIDs resource.IDSet, started time.Time,
-	includesEvents map[string]bool, resourceErrors []event.ResourceError, logger log.Logger) error {
+	includesEvents map[string]bool, resourceErrors []event.ResourceError, logger *zap.SugaredLogger) error {
 	if len(c.commits) == 0 {
 		return nil
 	}
@@ -392,7 +396,7 @@ func logCommitEvent(el eventLogger, c changeSet, serviceIDs resource.IDSet, star
 			Errors:      resourceErrors,
 		},
 	}); err != nil {
-		logger.Log("err", err)
+		logger.Error(zap.Error(err))
 		return err
 	}
 	return nil
