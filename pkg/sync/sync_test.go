@@ -2,11 +2,11 @@ package sync
 
 import (
 	"context"
-	"os"
 	"testing"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/fluxcd/flux/pkg/cluster"
 	"github.com/fluxcd/flux/pkg/cluster/kubernetes"
@@ -19,11 +19,19 @@ import (
 // Test that cluster.Sync gets called with the appropriate things when
 // run.
 func TestSync(t *testing.T) {
+	zap.RegisterEncoder("logfmt", func(config zapcore.EncoderConfig) (zapcore.Encoder, error) {
+		enc := zapLogfmt.NewEncoder(config)
+		return enc, nil
+	})
+	logCfg := zap.NewDevelopmentConfig()
+	logCfg.Encoding = "logfmt"
+	logger, _ := logCfg.Build()
+	sugaredLogger := logger.Sugar()
 	checkout, cleanup := setup(t)
 	defer cleanup()
 
 	// Start with nothing running. We should be told to apply all the things.
-	parser := kubernetes.NewManifests(kubernetes.ConstNamespacer("default"), log.NewLogfmtLogger(os.Stdout))
+	parser := kubernetes.NewManifests(kubernetes.ConstNamespacer("default"), sugaredLogger)
 	clus := &syncCluster{map[string]string{}}
 
 	dirs := checkout.AbsolutePaths()

@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/stretchr/testify/assert"
 
@@ -140,7 +139,18 @@ var (
 			},
 		},
 	}
-	mockManifests = kubernetes.NewManifests(kubernetes.ConstNamespacer("default"), log.NewLogfmtLogger(os.Stdout))
+	testLogger = func() *zap.SugaredLogger {
+		zap.RegisterEncoder("logfmt", func(config zapcore.EncoderConfig) (zapcore.Encoder, error) {
+			enc := zapLogfmt.NewEncoder(config)
+			return enc, nil
+		})
+		logCfg := zap.NewDevelopmentConfig()
+		logCfg.Encoding = "logfmt"
+		logger, _ := logCfg.Build()
+		sugaredLogger := logger.Sugar()
+		return sugaredLogger
+	}()
+	mockManifests = kubernetes.NewManifests(kubernetes.ConstNamespacer("default"), testLogger)
 )
 
 func mockCluster(running ...cluster.Workload) *mock.Mock {
@@ -1061,6 +1071,14 @@ func (m *badManifests) SetWorkloadContainerImage(def []byte, id resource.ID, con
 }
 
 func Test_BadRelease(t *testing.T) {
+	zap.RegisterEncoder("logfmt", func(config zapcore.EncoderConfig) (zapcore.Encoder, error) {
+		enc := zapLogfmt.NewEncoder(config)
+		return enc, nil
+	})
+	logCfg := zap.NewDevelopmentConfig()
+	logCfg.Encoding = "logfmt"
+	logger, _ := logCfg.Build()
+	sugaredLogger := logger.Sugar()
 	mCluster := mockCluster(hwSvc)
 	spec := update.ReleaseImageSpec{
 		ServiceSpecs: []update.ResourceSpec{update.ResourceSpecAll},
@@ -1071,7 +1089,7 @@ func Test_BadRelease(t *testing.T) {
 	checkout1, cleanup1 := setup(t)
 	defer cleanup1()
 
-	manifests := kubernetes.NewManifests(kubernetes.ConstNamespacer("default"), log.NewLogfmtLogger(os.Stdout))
+	manifests := kubernetes.NewManifests(kubernetes.ConstNamespacer("default"), sugaredLogger)
 	ctx := context.Background()
 	rc := &ReleaseContext{
 		cluster:       mCluster,

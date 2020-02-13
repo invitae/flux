@@ -3,23 +3,31 @@ package kubernetes
 import (
 	"bytes"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/fluxcd/flux/pkg/cluster/kubernetes/testfiles"
 )
 
 func TestLocalCRDScope(t *testing.T) {
+	zap.RegisterEncoder("logfmt", func(config zapcore.EncoderConfig) (zapcore.Encoder, error) {
+		enc := zapLogfmt.NewEncoder(config)
+		return enc, nil
+	})
+	logCfg := zap.NewDevelopmentConfig()
+	logCfg.Encoding = "logfmt"
+	logger, _ := logCfg.Build()
+	sugaredLogger := logger.Sugar()
 	coreClient := makeFakeClient()
 
 	nser, err := NewNamespacer(coreClient.Discovery(), "")
 	assert.NoError(t, err)
-	manifests := NewManifests(nser, log.NewLogfmtLogger(os.Stdout))
+	manifests := NewManifests(nser, sugaredLogger)
 
 	dir, cleanup := testfiles.TempDir(t)
 	defer cleanup()
@@ -62,12 +70,20 @@ metadata:
 }
 
 func TestUnKnownCRDScope(t *testing.T) {
+	zap.RegisterEncoder("logfmt", func(config zapcore.EncoderConfig) (zapcore.Encoder, error) {
+		enc := zapLogfmt.NewEncoder(config)
+		return enc, nil
+	})
+	logCfg := zap.NewDevelopmentConfig()
+	logCfg.Encoding = "logfmt"
+	logger, _ := logCfg.Build()
+	sugaredLogger := logger.Sugar()
 	coreClient := makeFakeClient()
 
 	nser, err := NewNamespacer(coreClient.Discovery(), "")
 	assert.NoError(t, err)
 	logBuffer := bytes.NewBuffer(nil)
-	manifests := NewManifests(nser, log.NewLogfmtLogger(logBuffer))
+	manifests := NewManifests(nser, sugaredLogger)
 
 	dir, cleanup := testfiles.TempDir(t)
 	defer cleanup()
