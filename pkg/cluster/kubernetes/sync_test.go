@@ -31,6 +31,7 @@ import (
 	"github.com/fluxcd/flux/pkg/resource"
 	"github.com/fluxcd/flux/pkg/sync"
 	helmopfake "github.com/fluxcd/helm-operator/pkg/client/clientset/versioned/fake"
+	zapLogfmt "github.com/sykesm/zap-logfmt"
 )
 
 const (

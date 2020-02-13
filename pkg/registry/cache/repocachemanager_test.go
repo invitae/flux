@@ -14,6 +14,7 @@ import (
 
 	"github.com/fluxcd/flux/pkg/image"
 	"github.com/fluxcd/flux/pkg/registry"
+	zapLogfmt "github.com/sykesm/zap-logfmt"
 )
 
 func Test_ClientTimeouts(t *testing.T) {

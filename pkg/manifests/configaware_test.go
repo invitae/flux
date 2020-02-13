@@ -16,6 +16,7 @@ import (
 	"github.com/fluxcd/flux/pkg/image"
 	"github.com/fluxcd/flux/pkg/policy"
 	"github.com/fluxcd/flux/pkg/resource"
+	zapLogfmt "github.com/sykesm/zap-logfmt"
 )
 
 // represents, for the purpose of setting a test up, either a

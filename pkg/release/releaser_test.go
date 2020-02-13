@@ -23,6 +23,7 @@ import (
 	registryMock "github.com/fluxcd/flux/pkg/registry/mock"
 	"github.com/fluxcd/flux/pkg/resource"
 	"github.com/fluxcd/flux/pkg/update"
+	zapLogfmt "github.com/sykesm/zap-logfmt"
 )
 
 var (

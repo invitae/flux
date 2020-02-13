@@ -14,6 +14,7 @@ import (
 	"github.com/fluxcd/flux/pkg/git/gittest"
 	"github.com/fluxcd/flux/pkg/manifests"
 	"github.com/fluxcd/flux/pkg/resource"
+	zapLogfmt "github.com/sykesm/zap-logfmt"
 )
 
 // Test that cluster.Sync gets called with the appropriate things when

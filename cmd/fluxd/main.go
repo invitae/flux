@@ -820,7 +820,7 @@ func main() {
 		cacheWarmer.Priority = daemon.ImageRefresh
 		cacheWarmer.Trace = *registryTrace
 		shutdownWg.Add(1)
-		go cacheWarmer.Loop(logger.With("component", "warmer")), shutdown, shutdownWg, imageCreds)
+		go cacheWarmer.Loop(logger.With(zap.String("component", "warmer")), shutdown, shutdownWg, imageCreds)
 	}
 
 	go func() {
@@ -845,7 +845,11 @@ func main() {
 	}
 
 	// wait here until stopping.
-	logger.Info(zap.String("exiting", <-errc))
+	if err := <-errc; err != nil {
+		logger.Error("exiting", zap.Error(err))
+	} else {
+		logger.Info("exiting")
+	}
 	close(shutdown)
 	shutdownWg.Wait()
 }

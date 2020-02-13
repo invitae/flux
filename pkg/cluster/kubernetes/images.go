@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/ryanuber/go-glob"
 	"go.uber.org/zap"
@@ -17,7 +16,7 @@ import (
 	"github.com/fluxcd/flux/pkg/resource"
 )
 
-func mergeCredentials(logger *zap.SugaredLogger, error,
+func mergeCredentials(logger *zap.SugaredLogger,
 	includeImage func(imageName string) bool,
 	client ExtendedClient,
 	namespace string, podTemplate apiv1.PodTemplateSpec,
@@ -92,13 +91,13 @@ func mergeCredentials(logger *zap.SugaredLogger, error,
 		case apiv1.SecretTypeDockerConfigJson:
 			decoded, ok = secret.Data[apiv1.DockerConfigJsonKey]
 		default:
-			logger.Info(zap.String("skip", "unknown type"), zap.String("secret", namespace+"/"+secret.Name, "type", secret.Type)
+			logger.Info(zap.String("skip", "unknown type"), zap.String("secret", namespace+"/"+secret.Name), zap.Any("type", secret.Type))
 			imagePullSecretCache[namespacedSecretName] = registry.NoCredentials()
 			continue
 		}
 
 		if !ok {
-			logger.Error(zap.Error(errors.Wrapf(err, "retrieving pod secret %q", secret.Name))
+			logger.Error(zap.Error(errors.Wrapf(err, "retrieving pod secret %q", secret.Name)))
 			imagePullSecretCache[namespacedSecretName] = registry.NoCredentials()
 			continue
 		}
@@ -106,7 +105,7 @@ func mergeCredentials(logger *zap.SugaredLogger, error,
 		// Parse secret
 		crd, err := registry.ParseCredentials(fmt.Sprintf("%s:secret/%s", namespace, name), decoded)
 		if err != nil {
-			logger.Error(zap.Error(err.Error())
+			logger.Error(zap.Error(err))
 			imagePullSecretCache[namespacedSecretName] = registry.NoCredentials()
 			continue
 		}
@@ -147,7 +146,7 @@ func (c *Cluster) ImagesToFetch() registry.ImageCreds {
 
 			imageCreds := make(registry.ImageCreds)
 			for _, workload := range workloads {
-				logger := logger.With(zap.String("resource", resource.MakeID(workload.GetNamespace()), zap.String(kind, workload.GetName())))
+				logger := c.logger.With(zap.Any("resource", resource.MakeID(workload.GetNamespace(), kind, workload.GetName())))
 				mergeCredentials(logger, c.includeImage, c.client, workload.GetNamespace(), workload.podTemplate, imageCreds, imagePullSecretCache)
 			}
 

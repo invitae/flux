@@ -9,7 +9,6 @@ import (
 	"github.com/docker/distribution/registry/api/errcode"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/fluxcd/flux/pkg/image"
 	"github.com/fluxcd/flux/pkg/registry"
@@ -67,20 +66,12 @@ func (c *mem) GetKey(k Keyer) ([]byte, time.Time, error) {
 // warmer to fetch information, the cached gets populated, and the
 // Registry implementation will see it.
 func TestWarmThenQuery(t *testing.T) {
-	zap.RegisterEncoder("logfmt", func(config zapcore.EncoderConfig) (zapcore.Encoder, error) {
-		enc := zapLogfmt.NewEncoder(config)
-		return enc, nil
-	})
-	logCfg := zap.NewDevelopmentConfig()
-	logCfg.Encoding = "logfmt"
-	logger, _ := logCfg.Build()
-	sugaredLogger := logger.Sugar()
 	digest := "abc"
-	warmer, cache := setup(t, &digest)
 	logger := zap.NewNop().Sugar()
+	warmer, cache := setup(t, &digest)
 
 	now := time.Now()
-	warmer.warm(context.TODO(), now, sugaredLogger, repo, registry.NoCredentials())
+	warmer.warm(context.TODO(), now, logger, repo, registry.NoCredentials())
 
 	registry := &Cache{Reader: cache}
 	repoInfo, err := registry.GetImageRepositoryMetadata(ref.Name)
