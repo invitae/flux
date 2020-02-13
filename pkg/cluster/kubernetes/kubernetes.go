@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	hrclient "github.com/fluxcd/helm-operator/pkg/client/clientset/versioned"
-	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -116,7 +115,7 @@ type Cluster struct {
 }
 
 // NewCluster returns a usable cluster.
-func NewCluster(client ExtendedClient, applier Applier, sshKeyRing ssh.KeyRing, logger log.Logger, allowedNamespaces map[string]struct{}, imageExcludeList []string, resourceExcludeList []string) *Cluster {
+func NewCluster(client ExtendedClient, applier Applier, sshKeyRing ssh.KeyRing, logger *zap.SugaredLogger, allowedNamespaces map[string]struct{}, imageExcludeList []string, resourceExcludeList []string) *Cluster {
 	c := &Cluster{
 		client:              client,
 		applier:             applier,

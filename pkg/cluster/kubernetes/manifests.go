@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-kit/kit/log"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -41,7 +40,7 @@ type manifests struct {
 	sopsEnabled      bool
 }
 
-func NewManifests(ns namespacer, logger log.Logger) *manifests {
+func NewManifests(ns namespacer, logger *zap.SugaredLogger) *manifests {
 	return &manifests{
 		namespacer:       ns,
 		logger:           logger,
@@ -50,7 +49,7 @@ func NewManifests(ns namespacer, logger log.Logger) *manifests {
 	}
 }
 
-func NewSopsManifests(ns namespacer, logger log.Logger) *manifests {
+func NewSopsManifests(ns namespacer, logger *zap.SugaredLogger) *manifests {
 	return &manifests{
 		namespacer:       ns,
 		logger:           logger,

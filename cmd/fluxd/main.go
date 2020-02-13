@@ -301,8 +301,9 @@ func main() {
 		fmt.Printf("error building logger: %s", err.Error())
 		os.Exit(1)
 	}
-	// Create a logger compatible with log.Logger interface
+	// Create a logger compatible with log.Logger interface for the k8s logger
 	compatibleLogger := zapLog.NewZapSugarLogger(baseLogger, zapLevel)
+	// Standard zap SugaredLogger
 	logger := baseLogger.Sugar()
 	logger.Info("version", version)
 
@@ -589,7 +590,7 @@ func main() {
 			BlockIDs:   *registryAWSBlockAccountIDs,
 		}
 
-		awsPreflight, credsWithAWSAuth := registry.ImageCredsWithAWSAuth(imageCreds, log.With(logger, "component", "aws"), awsConf)
+		awsPreflight, credsWithAWSAuth := registry.ImageCredsWithAWSAuth(imageCreds, logger.With(zap.String("component", "aws")), awsConf)
 		if mandatoryRegistry.has(RequireECR) {
 			if err := awsPreflight(); err != nil {
 				logger.Error("AWS API required (due to --registry-require=ecr), but not available", zap.Error(err))
@@ -620,7 +621,7 @@ func main() {
 			Service:        *memcachedService,
 			Timeout:        *memcachedTimeout,
 			UpdateInterval: 1 * time.Minute,
-			Logger:         log.With(compatibleLogger, "component", "memcached"),
+			Logger:         logger.With(zap.String("component", "memcached")),
 			MaxIdleConns:   *registryBurst,
 		}
 
@@ -644,11 +645,11 @@ func main() {
 		imageRegistry = registry.NewInstrumentedRegistry(imageRegistry)
 
 		// Remote client, for warmer to refresh entries
-		registryLogger := log.With(compatibleLogger, "component", "registry")
+		registryLogger := logger.With(zap.String("component", "registry"))
 		registryLimits := &registryMiddleware.RateLimiters{
 			RPS:    *registryRPS,
 			Burst:  *registryBurst,
-			Logger: log.With(compatibleLogger, "component", "ratelimiter"),
+			Logger: logger.With(zap.String("component", "ratelimiter")),
 		}
 		remoteFactory := &registry.RemoteClientFactory{
 			Logger:        registryLogger,
@@ -768,7 +769,7 @@ func main() {
 		GitConfig:                 gitConfig,
 		Jobs:                      jobs,
 		JobStatusCache:            &job.StatusCache{Size: 100},
-		Logger:                    log.With(logger, "component", "daemon"),
+		Logger:                    logger.With(zap.String("component", "daemon")),
 		ManifestGenerationEnabled: *manifestGeneration,
 		GitSecretEnabled:          *gitSecret,
 		LoopVars: &daemon.LoopVars{
@@ -785,7 +786,7 @@ func main() {
 	{
 		// Connect to fluxsvc if given an upstream address
 		if *upstreamURL != "" {
-			upstreamLogger := log.With(logger, "component", "upstream")
+			upstreamLogger := logger.With(zap.String("component", "upstream"))
 			upstreamLogger.Info(zap.String("URL", *upstreamURL))
 			upstream, err := daemonhttp.NewUpstream(
 				&http.Client{Timeout: 10 * time.Second},
@@ -819,7 +820,7 @@ func main() {
 		cacheWarmer.Priority = daemon.ImageRefresh
 		cacheWarmer.Trace = *registryTrace
 		shutdownWg.Add(1)
-		go cacheWarmer.Loop(log.With(logger, "component", "warmer"), shutdown, shutdownWg, imageCreds)
+		go cacheWarmer.Loop(logger.With("component", "warmer")), shutdown, shutdownWg, imageCreds)
 	}
 
 	go func() {
