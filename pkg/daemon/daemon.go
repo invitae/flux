@@ -354,7 +354,10 @@ func (d *Daemon) UpdateManifests(ctx context.Context, spec update.Spec) (job.ID,
 	case resource.PolicyUpdates:
 		return d.queueJob(d.makeLoggingJobFunc(d.makeJobFromUpdate(d.updatePolicies(spec, s)))), nil
 	case update.ManualSync:
-		return d.queueJob(d.sync()), nil
+		d.Logger.Log("msg", "update.ManualSync")
+		result := d.queueJob(d.sync())
+		d.Logger.Log("msg", "returns from update.ManualSync")
+		return result, nil
 	default:
 		return id, fmt.Errorf(`unknown update type "%s"`, spec.Type)
 	}
@@ -365,6 +368,7 @@ func (d *Daemon) sync() jobFunc {
 		var result job.Result
 		ctx, cancel := context.WithTimeout(ctx, d.SyncTimeout)
 		defer cancel()
+		d.Logger.Log("msg", "reaches sync()")
 		err := d.Repo.Refresh(ctx)
 		if err != nil {
 			return result, err

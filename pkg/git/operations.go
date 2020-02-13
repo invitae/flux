@@ -163,6 +163,7 @@ func push(ctx context.Context, workingDir, upstream string, refs []string) error
 
 // fetch updates refs from the upstream.
 func fetch(ctx context.Context, workingDir, upstream string, refspec ...string) error {
+	// fmt.Println("reaches git.fetch()")
 	args := append([]string{"fetch", "--tags", upstream}, refspec...)
 	// In git <=2.20 the error started with an uppercase, in 2.21 this
 	// was changed to be consistent with all other die() and error()

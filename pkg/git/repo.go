@@ -427,6 +427,7 @@ func (r *Repo) Refresh(ctx context.Context) error {
 	// could clone to another repo and pull there, then swap when complete.
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// fmt.Println("reaches Refresh()")
 	if err := r.errorIfNotReady(); err != nil {
 		return err
 	}
@@ -468,6 +469,7 @@ func (r *Repo) refreshLoop(shutdown <-chan struct{}) error {
 
 // fetch gets updated refs, and associated objects, from the upstream.
 func (r *Repo) fetch(ctx context.Context) error {
+	// fmt.Println("reaches Repo.fetch()")
 	if err := fetch(ctx, r.dir, "origin"); err != nil {
 		return err
 	}
