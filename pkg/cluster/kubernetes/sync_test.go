@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -116,7 +115,7 @@ func groupVersionResource(res *unstructured.Unstructured) schema.GroupVersionRes
 	return schema.GroupVersionResource{Group: gvk.Group, Version: gvk.Version, Resource: strings.ToLower(gvk.Kind) + "s"}
 }
 
-func (a fakeApplier) apply(_ log.Logger, cs changeSet, errored map[resource.ID]error) cluster.SyncError {
+func (a fakeApplier) apply(_ *zap.SugaredLogger, cs changeSet, errored map[resource.ID]error) cluster.SyncError {
 	var errs []cluster.ResourceError
 
 	operate := func(obj applyObject, cmd string) {

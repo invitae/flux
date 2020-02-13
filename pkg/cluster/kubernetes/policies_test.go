@@ -11,6 +11,7 @@ import (
 
 	"github.com/fluxcd/flux/pkg/policy"
 	"github.com/fluxcd/flux/pkg/resource"
+	zapLogfmt "github.com/sykesm/zap-logfmt"
 )
 
 func TestUpdatePolicies(t *testing.T) {

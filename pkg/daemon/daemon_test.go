@@ -15,7 +15,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/fluxcd/flux/pkg/api/v10"
 	v10 "github.com/fluxcd/flux/pkg/api/v10"
 	v11 "github.com/fluxcd/flux/pkg/api/v11"
 	v6 "github.com/fluxcd/flux/pkg/api/v6"

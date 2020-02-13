@@ -25,6 +25,7 @@ import (
 	fluxsync "github.com/fluxcd/flux/pkg/sync"
 	"github.com/prometheus/client_golang/prometheus"
 	promdto "github.com/prometheus/client_model/go"
+	zapLogfmt "github.com/sykesm/zap-logfmt"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
